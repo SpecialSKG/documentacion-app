@@ -1,0 +1,71 @@
+{
+  "ok": true,
+  "counts": {
+    "categories": 3,
+    "subcategories": 6,
+    "items": 15
+  },
+  "data": [
+    {
+      "name": "Infraestructura",
+      "subcategories": [
+        {
+          "name": "Servidores",
+          "items": [
+            { "name": "Alta de servidor" },
+            { "name": "Mantenimiento de servidor" },
+            { "name": "Baja de servidor" },
+            { "name": "Migración de servidor" }
+          ]
+        },
+        {
+          "name": "Redes",
+          "items": [
+            { "name": "Configuración de red" },
+            { "name": "Apertura de puertos" },
+            { "name": "VPN" }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Aplicaciones",
+      "subcategories": [
+        {
+          "name": "Software",
+          "items": [
+            { "name": "Instalación de software" },
+            { "name": "Actualización de software" },
+            { "name": "Licenciamiento" }
+          ]
+        },
+        {
+          "name": "Bases de datos",
+          "items": [
+            { "name": "Creación de base de datos" },
+            { "name": "Respaldo de base de datos" },
+            { "name": "Restauración de base de datos" }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Seguridad",
+      "subcategories": [
+        {
+          "name": "Accesos",
+          "items": [
+            { "name": "Alta de usuario" },
+            { "name": "Modificación de permisos" }
+          ]
+        },
+        {
+          "name": "Incidentes",
+          "items": [
+            { "name": "Reporte de incidente de seguridad" }
+          ]
+        }
+      ]
+    }
+  ]
+}

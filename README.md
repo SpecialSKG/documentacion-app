@@ -1,36 +1,194 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Mesa de Servicios - Sistema de Documentación
 
-## Getting Started
+Sistema web para crear y mantener documentos de "Documentación Mesa de Servicio" mediante un wizard paso a paso, con exportación a Excel usando el template oficial.
 
-First, run the development server:
+## 🚀 Características
+
+- **Wizard multi-paso** para captura de datos
+- **Guardado automático** con localStorage (no se pierde el progreso)
+- **Exportación a Excel** usando el template oficial
+- **Campos adicionales personalizados** (micro-paso: captura título + tipo simultáneamente)
+- **Upload de flujograma** con vista previa
+- **Accesibilidad** completa por teclado
+- **Sin backend** - funciona completamente en el navegador
+
+## 📋 Requisitos
+
+- Node.js 18+ 
+- npm o yarn
+
+## 🛠️ Instalación
 
 ```bash
+# Clonar o descargar el proyecto
+cd mesa-servicios-app
+
+# Instalar dependencias
+npm install
+
+# Ejecutar en modo desarrollo
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Abre [http://localhost:3000](http://localhost:3000) en tu navegador.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 📁 Estructura del Proyecto
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```
+mesa-servicios-app/
+├── src/
+│   ├── app/                  # Páginas Next.js (App Router)
+│   │   ├── page.tsx         # Dashboard
+│   │   └── nuevo/page.tsx   # Wizard
+│   ├── components/
+│   │   ├── wizard/
+│   │   │   ├── WizardShell.tsx        # Orquestador del wizard
+│   │   │   ├── steps/
+│   │   │   │   ├── StepGeneral.tsx    # Paso 1: Datos generales
+│   │   │   │   ├── StepDetalle.tsx    # Paso 2: Tabla de detalle
+│   │   │   │   └── StepResumen.tsx    # Paso 3: Resumen + exportación
+│   │   │   └── ui/
+│   │   │       └── DetalleRowEditor.tsx  # Editor de fila (micro-paso)
+│   │   └── ui/              # Componentes shadcn/ui
+│   ├── data/
+│   │   ├── catalog.json     # ⚠️ Catálogo de categorías/subcategorías/items
+│   │   └── options.ts       # Opciones maestras (SLA, tipos, etc.)
+│   ├── lib/
+│   │   ├── document.ts      # Tipos y esquemas del documento
+│   │   ├── storage.ts       # Persistencia con localForage
+│   │   ├── excel/
+│   │   │   ├── exportExcel.ts    # Lógica de exportación
+│   │   │   └── excelAnchors.ts   # Mapeo de celdas del template
+│   │   └── utils.ts
+│   └── stores/
+│       └── docStore.ts      # Store de Zustand (estado global)
+├── public/
+│   └── templates/
+│       └── DOCUMENTACION MESA DE SERVICIOS.xlsx  # Template oficial
+└── package.json
+```
 
-## Learn More
+## ⚙️ Configuración del Catálogo
 
-To learn more about Next.js, take a look at the following resources:
+El archivo `src/data/catalog.json` contiene el catálogo de **Categorías → Subcategorías → Items**.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Formato del catálogo
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```json
+{
+  "ok": true,
+  "counts": {
+    "categories": 3,
+    "subcategories": 6,
+    "items": 15
+  },
+  "data": [
+    {
+      "name": "Infraestructura",
+      "subcategories": [
+        {
+          "name": "Servidores",
+          "items": [
+            { "name": "Alta de servidor" },
+            { "name": "Mantenimiento de servidor" }
+          ]
+        }
+      ]
+    }
+  ]
+}
+```
 
-## Deploy on Vercel
+### Para reemplazar con datos reales:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+1. Abre `src/data/catalog.json`
+2. Reemplaza el contenido con tu catálogo real
+3. Mantén la misma estructura JSON
+4. Reinicia el servidor de desarrollo (`npm run dev`)
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 🎨 Stack Tecnológico
+
+- **Framework**: Next.js 15 (App Router)
+- **Lenguaje**: TypeScript
+- **Estilo**: Tailwind CSS
+- **Componentes UI**: shadcn/ui
+- **Estado**: Zustand
+- **Formularios**: React Hook Form + Zod
+- **Excel**: exceljs
+- **Persistencia**: localForage
+- **Notificaciones**: Sonner (toast)
+
+## 📝 Uso
+
+### 1. Dashboard
+- Inicia desde el dashboard
+- Opción de limpiar documento actual
+- Ver si hay borrador en progreso
+
+### 2. Paso 1: Datos Generales
+- Completa información básica del servicio
+- Campos como nombre, objetivo, ámbito, sitio, etc.
+- Guardado automático
+
+### 3. Paso 2: Detalle
+- Agrega entradas de servicio
+- Selecciona Categoría → Subcategoría → Item (selects encadenados)
+- **Campos adicionales**: Usa el botón `+` para agregar campos personalizados
+  - Ingresa título y tipo simultáneamente
+  - Puedes agregar múltiples campos por entrada
+- Configura SLA, tipo de información, etc.
+
+### 4. Paso 3: Resumen y Exportación
+- Revisa resumen de datos capturados
+- Sube flujograma (PNG/JPG) - opcional
+- Exporta a Excel:
+  - **Plantilla oficial**: Genera el Excel completo con template
+  - **Solo tabla**: Exporta únicamente la tabla de detalle
+
+## 🔧 Construcción para Producción
+
+```bash
+# Compilar
+npm run build
+
+# Ejecutar producción
+npm start
+```
+
+## ♿ Accesibilidad
+
+El sistema está diseñado para ser completamente accesible:
+- ✅ Navegación completa por teclado
+- ✅ Labels y aria-labels en todos los controles
+- ✅ Focus visible
+- ✅ Mensajes claros con toasts
+- ✅ Confirmaciones importantes
+
+## 📦 Template Excel
+
+El template `DOCUMENTACION MESA DE SERVICIOS.xlsx` debe estar en `public/templates/`.
+
+La exportación:
+- Preserva estilos del template
+- Rellena datos generales en celdas correspondientes
+- Escribe tabla de detalle en formato multilinea
+- Inserta flujograma debajo de la tabla (columnas B:G)
+
+## 🐛 Solución de Problemas
+
+### El template no se encuentra
+Verifica que el archivo esté en `public/templates/DOCUMENTACION MESA DE SERVICIOS.xlsx`
+
+### Los datos no se guardan
+Verifica que localStorage esté habilitado en tu navegador
+
+### Error de compilación TypeScript
+Ejecuta `npm install` nuevamente para asegurar todas las dependencias
+
+## 📄 Licencia
+
+Este proyecto es de uso interno.
+
+## 👥 Soporte
+
+Para preguntas y soporte, contacta al equipo de desarrollo.
