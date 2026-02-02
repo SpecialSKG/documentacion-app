@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Download, Upload, X, FileText, Image as ImageIcon } from 'lucide-react';
 import { toast } from 'sonner';
-import { exportToExcel, exportPlainTable } from '@/lib/excel/exportExcel';
+import { exportToExcel } from '@/lib/excel/exportExcel';
 
 export default function StepResumen() {
     const { document, setFlowchart, removeFlowchart } = useDocumentStore();
@@ -82,25 +82,15 @@ export default function StepResumen() {
         }
     };
 
-    const handleExportPlain = async () => {
-        try {
-            const blob = await exportPlainTable(document);
-
-            const url = URL.createObjectURL(blob);
-            const a = window.document.createElement('a');
-            a.href = url;
-            a.download = 'Detalle_Mesa_Servicios.xlsx';
-            a.click();
-            URL.revokeObjectURL(url);
-
-            toast.success('Tabla exportada correctamente');
-        } catch (error) {
-            console.error('Error al exportar tabla:', error);
-            toast.error('Error al exportar la tabla');
-        }
-    };
-
     const { general, detalle } = document;
+
+    // Calculate total count of items across all categories and subcategories
+    const totalItems = detalle.reduce((acc, cat) => {
+        return acc + cat.subcategorias.reduce((subAcc, subcat) => {
+            return subAcc + subcat.items.length;
+        }, 0);
+    }, 0);
+
     const hasData = general.nombreServicio || detalle.length > 0;
 
     return (
@@ -157,37 +147,54 @@ export default function StepResumen() {
                 </CardContent>
             </Card>
 
-            {/* Resumen de detalle */}
+            {/* Resumen de detalle - ACTUALIZADO PARA JERARQUÍA */}
             <Card>
                 <CardHeader>
                     <CardTitle>Detalle del Servicio</CardTitle>
                     <CardDescription>
                         {detalle.length > 0
-                            ? `${detalle.length} entrada${detalle.length > 1 ? 's' : ''} registrada${detalle.length > 1 ? 's' : ''}`
-                            : 'No hay entradas registradas'}
+                            ? `${detalle.length} categoría${detalle.length > 1 ? 's' : ''}, ${totalItems} ítem${totalItems !== 1 ? 's' : ''} total${totalItems !== 1 ? 'es' : ''}`
+                            : 'No hay categorías registradas'}
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
                     {detalle.length > 0 ? (
-                        <div className="space-y-2">
-                            {detalle.map((row, idx) => (
-                                <div key={row.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                                    <span className="text-sm font-semibold text-blue-600">#{idx + 1}</span>
-                                    <div className="flex-1">
-                                        <p className="text-sm font-medium">
-                                            {row.categoria} › {row.subcategoria} › {row.item}
-                                        </p>
-                                        {row.camposAdicionales.length > 0 && (
-                                            <p className="text-xs text-gray-600">
-                                                {row.camposAdicionales.length} campo{row.camposAdicionales.length > 1 ? 's' : ''} adicional{row.camposAdicionales.length > 1 ? 'es' : ''}
-                                            </p>
-                                        )}
+                        <div className="space-y-3">
+                            {detalle.map((categoria) => (
+                                <div key={categoria.id} className="border-l-4 border-l-blue-500 pl-3">
+                                    <p className="font-semibold text-blue-900">📁 {categoria.nombre || '(Sin nombre)'}</p>
+                                    <div className="ml-4 mt-1 space-y-2">
+                                        {categoria.subcategorias.map((subcat) => (
+                                            <div key={subcat.id} className="border-l-2 border-l-green-400 pl-2">
+                                                <p className="text-sm font-medium text-green-700">
+                                                    📂  {subcat.nombre || '(Sin nombre)'}
+                                                    <span className="text-xs text-gray-500 ml-2">
+                                                        ({subcat.items.length} ítem{subcat.items.length !== 1 ? 's' : ''})
+                                                    </span>
+                                                </p>
+                                                {subcat.items.length > 0 && (
+                                                    <div className="ml-3 mt-1 text-xs text-gray-600">
+                                                        {subcat.items.map((item, idx) => (
+                                                            <div key={item.id} className="flex items-center gap-1">
+                                                                <span>📄</span>
+                                                                <span>{item.itemNombre || '(Sin nombre)'}</span>
+                                                                {item.camposAdicionales.length > 0 && (
+                                                                    <span className="text-blue-600">
+                                                                        (+{item.camposAdicionales.length} campos)
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
                                     </div>
                                 </div>
                             ))}
                         </div>
                     ) : (
-                        <p className="text-sm text-gray-500">No hay entradas de detalle</p>
+                        <p className="text-sm text-gray-500">No hay categorías de detalle</p>
                     )}
                 </CardContent>
             </Card>
@@ -279,17 +286,7 @@ export default function StepResumen() {
                         size="lg"
                     >
                         <FileText className="w-5 h-5 mr-2" />
-                        {isExporting ? 'Exportando...' : 'Exportar Plantilla Oficial (XLSX)'}
-                    </Button>
-
-                    <Button
-                        onClick={handleExportPlain}
-                        disabled={detalle.length === 0}
-                        variant="outline"
-                        className="w-full"
-                    >
-                        <Download className="w-4 h-4 mr-2" />
-                        Exportar solo tabla de detalle (XLSX)
+                        {isExporting ? 'Exportando...' : 'Exportar Documento Completo (XLSX)'}
                     </Button>
 
                     {!hasData && (

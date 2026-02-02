@@ -1,17 +1,17 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { DetalleRowSchema, type DetalleRow, type CampoAdicional, createEmptyCampoAdicional } from '@/lib/document';
 import { useDocumentStore } from '@/stores/docStore';
+import { Item, GrupoEspecial, CampoAdicional, createEmptyItem, createEmptyCampoAdicional } from '@/lib/document';
+import { useDataOptions } from '@/hooks/useDataOptions';
+import { useCatalogo } from '@/hooks/useCatalogo';
 import {
-    Sheet,
-    SheetContent,
-    SheetDescription,
-    SheetHeader,
-    SheetTitle,
-} from '@/components/ui/sheet';
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -25,52 +25,56 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Plus, X, Save } from 'lucide-react';
-import { FIELD_TYPES } from '@/lib/document';
-import { useDataOptions } from '@/hooks/useDataOptions';
-import { useCatalogo } from '@/hooks/useCatalogo';
 
-interface DetalleRowEditorProps {
-    row: DetalleRow;
+interface ItemModalProps {
+    item: Item | null;
     isOpen: boolean;
     onClose: () => void;
-    onSave: (row: DetalleRow) => void;
+    onSave: (item: Item, categoriaId: string, subcategoriaId: string) => void;
+    // Contexto jerárquico
+    categoriaId?: string;
+    subcategoriaId?: string;
 }
 
-export default function DetalleRowEditor({ row, isOpen, onClose, onSave }: DetalleRowEditorProps) {
-    const { updateDetalleRow } = useDocumentStore();
+export default function ItemModal({ item, isOpen, onClose, onSave, categoriaId, subcategoriaId }: ItemModalProps) {
     const { slaOptions, tipoCamposOptions, tipoInformacionOptions } = useDataOptions();
     const { categorias, getSubcategorias, getItems } = useCatalogo();
-    const [localRow, setLocalRow] = useState<DetalleRow>(row);
-    const [selectedCategoria, setSelectedCategoria] = useState(row.categoria);
-    const [selectedSubcategoria, setSelectedSubcategoria] = useState(row.subcategoria);
-    const [camposAdicionales, setCamposAdicionales] = useState<CampoAdicional[]>(row.camposAdicionales || []);
 
+    const [localItem, setLocalItem] = useState<Item>(item || createEmptyItem());
+    const [selectedCategoria, setSelectedCategoria] = useState('');
+    const [selectedSubcategoria, setSelectedSubcategoria] = useState('');
+    const [camposAdicionales, setCamposAdicionales] = useState<CampoAdicional[]>([]);
+
+    // Inicializar estado cuando cambian props
     useEffect(() => {
-        setLocalRow(row);
-        setSelectedCategoria(row.categoria);
-        setSelectedSubcategoria(row.subcategoria);
-        setCamposAdicionales(row.camposAdicionales || []);
-    }, [row]);
+        if (item) {
+            setLocalItem(item);
+            setCamposAdicionales(item.camposAdicionales || []);
+        } else {
+            const newItem = createEmptyItem();
+            setLocalItem(newItem);
+            setCamposAdicionales([]);
+        }
+    }, [item]);
 
     const subcategorias = getSubcategorias(selectedCategoria);
     const items = getItems(selectedCategoria, selectedSubcategoria);
 
-    const handleChange = (field: keyof DetalleRow, value: string) => {
-        setLocalRow((prev) => ({ ...prev, [field]: value }));
+    const handleChange = (field: keyof Item, value: any) => {
+        setLocalItem((prev) => ({ ...prev, [field]: value }));
     };
 
-    const handleCategoriaChange = (value: string) => {
-        setSelectedCategoria(value);
-        setSelectedSubcategoria('');
-        setLocalRow((prev) => ({ ...prev, categoria: value, subcategoria: '', item: '' }));
+    const handleGrupoChange = (field: keyof GrupoEspecial, value: string, grupoType: 'grupo' | 'gruposAsistencia' | 'gruposUsuario') => {
+        setLocalItem((prev) => ({
+            ...prev,
+            [grupoType]: {
+                ...prev[grupoType],
+                [field]: value,
+            },
+        }));
     };
 
-    const handleSubcategoriaChange = (value: string) => {
-        setSelectedSubcategoria(value);
-        setLocalRow((prev) => ({ ...prev, subcategoria: value, item: '' }));
-    };
-
-    // ===== MICRO-PASO: Campos Adicionales =====
+    // Campos adicionales
     const handleAddCampo = () => {
         setCamposAdicionales([...camposAdicionales, createEmptyCampoAdicional()]);
     };
@@ -86,26 +90,26 @@ export default function DetalleRowEditor({ row, isOpen, onClose, onSave }: Detal
     };
 
     const handleSave = () => {
-        const finalRow = {
-            ...localRow,
+        const finalItem = {
+            ...localItem,
             camposAdicionales,
         };
-        updateDetalleRow(finalRow.id, finalRow);
-        onSave(finalRow);
+        onSave(finalItem, categoriaId || '', subcategoriaId || '');
+        onClose();
     };
 
     return (
-        <Sheet open={isOpen} onOpenChange={onClose}>
-            <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto">
-                <SheetHeader>
-                    <SheetTitle>Editar Entrada de Detalle</SheetTitle>
-                    <SheetDescription>
-                        Configura la entrada con categoría, subcategoría, ítem y campos adicionales
-                    </SheetDescription>
-                </SheetHeader>
+        <Dialog open={isOpen} onOpenChange={onClose}>
+            <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                    <DialogTitle>{item ? 'Editar Ítem' : 'Agregar Nuevo Ítem'}</DialogTitle>
+                    <DialogDescription>
+                        Configura el ítem con categoría, subcategoría, artículo y campos adicionales
+                    </DialogDescription>
+                </DialogHeader>
 
-                <div className="mt-6 space-y-6">
-                    {/* Catálogo: Categoría, Subcategoría, Item */}
+                <div className="space-y-6 mt-4">
+                    {/* === SECCIÓN 1: CATÁLOGO === */}
                     <Card>
                         <CardHeader>
                             <CardTitle className="text-base">Catálogo</CardTitle>
@@ -114,8 +118,8 @@ export default function DetalleRowEditor({ row, isOpen, onClose, onSave }: Detal
                             {/* Categoría */}
                             <div>
                                 <Label htmlFor="categoria">Categoría *</Label>
-                                <Select value={selectedCategoria} onValueChange={handleCategoriaChange}>
-                                    <SelectTrigger id="categoria" aria-label="Seleccionar categoría">
+                                <Select value={selectedCategoria} onValueChange={setSelectedCategoria}>
+                                    <SelectTrigger id="categoria">
                                         <SelectValue placeholder="Selecciona una categoría" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -133,10 +137,10 @@ export default function DetalleRowEditor({ row, isOpen, onClose, onSave }: Detal
                                 <Label htmlFor="subcategoria">Subcategoría *</Label>
                                 <Select
                                     value={selectedSubcategoria}
-                                    onValueChange={handleSubcategoriaChange}
+                                    onValueChange={setSelectedSubcategoria}
                                     disabled={!selectedCategoria}
                                 >
-                                    <SelectTrigger id="subcategoria" aria-label="Seleccionar subcategoría">
+                                    <SelectTrigger id="subcategoria">
                                         <SelectValue placeholder="Selecciona una subcategoría" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -149,21 +153,21 @@ export default function DetalleRowEditor({ row, isOpen, onClose, onSave }: Detal
                                 </Select>
                             </div>
 
-                            {/* Item */}
+                            {/* Ítem/Artículo */}
                             <div>
-                                <Label htmlFor="item">Item *</Label>
+                                <Label htmlFor="itemNombre">Artículo / Ítem *</Label>
                                 <Select
-                                    value={localRow.item}
-                                    onValueChange={(v) => handleChange('item', v)}
+                                    value={localItem.itemNombre}
+                                    onValueChange={(v) => handleChange('itemNombre', v)}
                                     disabled={!selectedSubcategoria}
                                 >
-                                    <SelectTrigger id="item" aria-label="Seleccionar item">
-                                        <SelectValue placeholder="Selecciona un item" />
+                                    <SelectTrigger id="itemNombre">
+                                        <SelectValue placeholder="Selecciona un artículo" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {items.map((item) => (
-                                            <SelectItem key={item.name} value={item.name}>
-                                                {item.name}
+                                        {items.map((itm) => (
+                                            <SelectItem key={itm.name} value={itm.name}>
+                                                {itm.name}
                                             </SelectItem>
                                         ))}
                                     </SelectContent>
@@ -172,28 +176,16 @@ export default function DetalleRowEditor({ row, isOpen, onClose, onSave }: Detal
                         </CardContent>
                     </Card>
 
-                    {/* Propiedades del servicio */}
+                    {/* === SECCIÓN 2: PROPIEDADES DEL ÍTEM === */}
                     <Card>
                         <CardHeader>
-                            <CardTitle className="text-base">Propiedades del Servicio</CardTitle>
+                            <CardTitle className="text-base">Propiedades del Ítem</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            {/* Detalle */}
-                            <div>
-                                <Label htmlFor="detalle">Detalle</Label>
-                                <Textarea
-                                    id="detalle"
-                                    value={localRow.detalle}
-                                    onChange={(e) => handleChange('detalle', e.target.value)}
-                                    placeholder="Descripción detallada"
-                                    rows={3}
-                                />
-                            </div>
-
-                            {/* SLA */}
+                            {/* SLA (Col G) */}
                             <div>
                                 <Label htmlFor="sla">SLA</Label>
-                                <Select value={localRow.sla} onValueChange={(v) => handleChange('sla', v)}>
+                                <Select value={localItem.sla} onValueChange={(v) => handleChange('sla', v)}>
                                     <SelectTrigger id="sla">
                                         <SelectValue placeholder="Selecciona un SLA" />
                                     </SelectTrigger>
@@ -207,22 +199,27 @@ export default function DetalleRowEditor({ row, isOpen, onClose, onSave }: Detal
                                 </Select>
                             </div>
 
-                            {/* Grupo - TEMPORALMENTE DESHABILITADO (Fase 4: rediseño con estructura 2 niveles) */}
-                            {/* <div>
-                                <Label htmlFor="grupo">Grupo</Label>
+                            {/* Grupo (Col H) - Estructura 2 niveles */}
+                            <div className="space-y-2">
+                                <Label>Grupo (H) - Estructura 2 niveles</Label>
                                 <Input
-                                    id="grupo"
-                                    value={localRow.grupo}
-                                    onChange={(e) => handleChange('grupo', e.target.value)}
-                                    placeholder="Grupo (será rediseñado)"
+                                    placeholder="Título del grupo (fila 1)"
+                                    value={localItem.grupo.titulo}
+                                    onChange={(e) => handleGrupoChange('titulo', e.target.value, 'grupo')}
                                 />
-                            </div> */}
+                                <Textarea
+                                    placeholder="Contenido del grupo (filas 2+, multilinea)"
+                                    value={localItem.grupo.contenido}
+                                    onChange={(e) => handleGrupoChange('contenido', e.target.value, 'grupo')}
+                                    rows={3}
+                                />
+                            </div>
 
-                            {/* Tipo de Información */}
+                            {/* Tipo de Información (Col I) */}
                             <div>
                                 <Label htmlFor="tipoInformacion">Tipo de Información</Label>
                                 <Select
-                                    value={localRow.tipoInformacion}
+                                    value={localItem.tipoInformacion}
                                     onValueChange={(v) => handleChange('tipoInformacion', v)}
                                 >
                                     <SelectTrigger id="tipoInformacion">
@@ -238,42 +235,73 @@ export default function DetalleRowEditor({ row, isOpen, onClose, onSave }: Detal
                                 </Select>
                             </div>
 
-                            {/* Requiere Documento - TEMPORALMENTE DESHABILITADO (Fase 4: rediseño) */}
-                            {/* <div>
-                                <Label htmlFor="requiereDocumento">¿Requiere Documento?</Label>
-                                <Input
-                                    id="requiereDocumento"
-                                    value={localRow.requiereDocumento}
-                                    onChange={(e) => handleChange('requiereDocumento', e.target.value)}
-                                    placeholder="Sí/No"
-                                />
-                            </div> */}
-
-                            {/* Observaciones */}
+                            {/* Buzón (Col J) */}
                             <div>
-                                <Label htmlFor="observaciones">Observaciones</Label>
+                                <Label htmlFor="buzon">Buzón</Label>
+                                <Input
+                                    id="buzon"
+                                    placeholder="Buzón de correo"
+                                    value={localItem.buzon}
+                                    onChange={(e) => handleChange('buzon', e.target.value)}
+                                />
+                            </div>
+
+                            {/* Formulario Zoho (Col L) */}
+                            <div>
+                                <Label htmlFor="formularioZoho">Formulario Zoho</Label>
+                                <Input
+                                    id="formularioZoho"
+                                    placeholder="Formulario Zoho"
+                                    value={localItem.formularioZoho}
+                                    onChange={(e) => handleChange('formularioZoho', e.target.value)}
+                                />
+                            </div>
+
+                            {/* Grupos de Asistencia (Col M) - Estructura 2 niveles */}
+                            <div className="space-y-2">
+                                <Label>Grupos de Asistencia Seleccionados (M) - Estructura 2 niveles</Label>
+                                <Input
+                                    placeholder="Título del grupo (fila 1)"
+                                    value={localItem.gruposAsistencia.titulo}
+                                    onChange={(e) => handleGrupoChange('titulo', e.target.value, 'gruposAsistencia')}
+                                />
                                 <Textarea
-                                    id="observaciones"
-                                    value={localRow.observaciones}
-                                    onChange={(e) => handleChange('observaciones', e.target.value)}
-                                    placeholder="Observaciones adicionales"
+                                    placeholder="Contenido (filas 2+, multilinea)"
+                                    value={localItem.gruposAsistencia.contenido}
+                                    onChange={(e) => handleGrupoChange('contenido', e.target.value, 'gruposAsistencia')}
+                                    rows={3}
+                                />
+                            </div>
+
+                            {/* Grupos de Usuario (Col N) - Estructura 2 niveles */}
+                            <div className="space-y-2">
+                                <Label>Grupos de Usuario Seleccionados (N) - Estructura 2 niveles</Label>
+                                <Input
+                                    placeholder="Título del grupo (fila 1)"
+                                    value={localItem.gruposUsuario.titulo}
+                                    onChange={(e) => handleGrupoChange('titulo', e.target.value, 'gruposUsuario')}
+                                />
+                                <Textarea
+                                    placeholder="Contenido (filas 2+, multilinea)"
+                                    value={localItem.gruposUsuario.contenido}
+                                    onChange={(e) => handleGrupoChange('contenido', e.target.value, 'gruposUsuario')}
                                     rows={3}
                                 />
                             </div>
                         </CardContent>
                     </Card>
 
-                    {/* ===== MICRO-PASO: Campos Adicionales ===== */}
+                    {/* === SECCIÓN 3: CAMPOS ADICIONALES === */}
                     <Card className="border-2 border-blue-200">
                         <CardHeader>
                             <div className="flex items-center justify-between">
                                 <div>
                                     <CardTitle className="text-base">Campos Adicionales</CardTitle>
                                     <p className="text-sm text-gray-600 mt-1">
-                                        Define campos personalizados para este item
+                                        Define campos personalizados para este ítem
                                     </p>
                                 </div>
-                                <Button size="sm" onClick={handleAddCampo} aria-label="Agregar campo adicional">
+                                <Button size="sm" onClick={handleAddCampo}>
                                     <Plus className="w-4 h-4 mr-2" />
                                     Agregar campo
                                 </Button>
@@ -293,7 +321,6 @@ export default function DetalleRowEditor({ row, isOpen, onClose, onSave }: Detal
                                                 placeholder="Título del campo"
                                                 value={campo.titulo}
                                                 onChange={(e) => handleUpdateCampo(index, 'titulo', e.target.value)}
-                                                aria-label={`Título del campo ${index + 1}`}
                                             />
 
                                             {/* Tipo de campo */}
@@ -301,7 +328,7 @@ export default function DetalleRowEditor({ row, isOpen, onClose, onSave }: Detal
                                                 value={campo.tipo}
                                                 onValueChange={(v) => handleUpdateCampo(index, 'tipo', v)}
                                             >
-                                                <SelectTrigger aria-label={`Tipo de campo ${index + 1}`}>
+                                                <SelectTrigger>
                                                     <SelectValue placeholder="Tipo de campo" />
                                                 </SelectTrigger>
                                                 <SelectContent>
@@ -318,7 +345,6 @@ export default function DetalleRowEditor({ row, isOpen, onClose, onSave }: Detal
                                             variant="destructive"
                                             size="sm"
                                             onClick={() => handleRemoveCampo(index)}
-                                            aria-label={`Eliminar campo ${index + 1}`}
                                         >
                                             <X className="w-4 h-4" />
                                         </Button>
@@ -332,14 +358,14 @@ export default function DetalleRowEditor({ row, isOpen, onClose, onSave }: Detal
                     <div className="flex gap-3 pt-4">
                         <Button onClick={handleSave} className="flex-1">
                             <Save className="w-4 h-4 mr-2" />
-                            Guardar entrada
+                            Guardar ítem
                         </Button>
                         <Button variant="outline" onClick={onClose} className="flex-1">
                             Cancelar
                         </Button>
                     </div>
                 </div>
-            </SheetContent>
-        </Sheet>
+            </DialogContent>
+        </Dialog>
     );
 }

@@ -23,10 +23,11 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { AMBITO_OPTIONS, SITIO_OPTIONS, REQUIERE_REPORTES_OPTIONS } from '@/data/options';
+import { useDataOptions } from '@/hooks/useDataOptions';
 
 export default function StepGeneral() {
     const { document, updateGeneral } = useDocumentStore();
+    const { ambitoOptions, sitiosOptions, requiereReportesOptions } = useDataOptions();
 
     const form = useForm({
         resolver: zodResolver(GeneralDataSchema),
@@ -92,17 +93,17 @@ export default function StepGeneral() {
                                 )}
                             />
 
-                            {/* Grid de 2 columnas para campos más pequeños */}
+                            {/* Grid de 2 columnas para campos relacionados - BALANCEADO */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 {/* Plantilla */}
                                 <FormField
                                     control={form.control}
                                     name="plantilla"
                                     render={({ field }) => (
-                                        <FormItem>
+                                        <FormItem className="w-full">
                                             <FormLabel>Plantilla</FormLabel>
                                             <FormControl>
-                                                <Input placeholder="Nombre de la plantilla" {...field} />
+                                                <Input className="w-full" placeholder="Nombre de la plantilla" {...field} />
                                             </FormControl>
                                             <FormMessage />
                                         </FormItem>
@@ -114,16 +115,16 @@ export default function StepGeneral() {
                                     control={form.control}
                                     name="ambito"
                                     render={({ field }) => (
-                                        <FormItem>
+                                        <FormItem className="w-full">
                                             <FormLabel>Ámbito</FormLabel>
                                             <Select onValueChange={field.onChange} value={field.value}>
                                                 <FormControl>
-                                                    <SelectTrigger aria-label="Seleccionar ámbito">
+                                                    <SelectTrigger className="w-full" aria-label="Seleccionar ámbito">
                                                         <SelectValue placeholder="Selecciona un ámbito" />
                                                     </SelectTrigger>
                                                 </FormControl>
                                                 <SelectContent>
-                                                    {AMBITO_OPTIONS.map((option) => (
+                                                    {ambitoOptions.map((option) => (
                                                         <SelectItem key={option.value} value={option.value}>
                                                             {option.label}
                                                         </SelectItem>
@@ -134,22 +135,25 @@ export default function StepGeneral() {
                                         </FormItem>
                                     )}
                                 />
+                            </div>
 
+                            {/* Grid de 2 columnas: Sitio + Requiere Reportes - BALANCEADO */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 {/* Sitio */}
                                 <FormField
                                     control={form.control}
                                     name="sitio"
                                     render={({ field }) => (
-                                        <FormItem>
+                                        <FormItem className="w-full">
                                             <FormLabel>Sitio</FormLabel>
                                             <Select onValueChange={field.onChange} value={field.value}>
                                                 <FormControl>
-                                                    <SelectTrigger aria-label="Seleccionar sitio">
+                                                    <SelectTrigger className="w-full" aria-label="Seleccionar sitio">
                                                         <SelectValue placeholder="Selecciona un sitio" />
                                                     </SelectTrigger>
                                                 </FormControl>
                                                 <SelectContent>
-                                                    {SITIO_OPTIONS.map((option) => (
+                                                    {sitiosOptions.map((option) => (
                                                         <SelectItem key={option.value} value={option.value}>
                                                             {option.label}
                                                         </SelectItem>
@@ -166,16 +170,16 @@ export default function StepGeneral() {
                                     control={form.control}
                                     name="requiereReportes"
                                     render={({ field }) => (
-                                        <FormItem>
+                                        <FormItem className="w-full">
                                             <FormLabel>¿Requiere Reportes?</FormLabel>
                                             <Select onValueChange={field.onChange} value={field.value}>
                                                 <FormControl>
-                                                    <SelectTrigger aria-label="Requiere reportes">
+                                                    <SelectTrigger className="w-full" aria-label="Requiere reportes">
                                                         <SelectValue placeholder="Selecciona una opción" />
                                                     </SelectTrigger>
                                                 </FormControl>
                                                 <SelectContent>
-                                                    {REQUIERE_REPORTES_OPTIONS.map((option) => (
+                                                    {requiereReportesOptions.map((option) => (
                                                         <SelectItem key={option.value} value={option.value}>
                                                             {option.label}
                                                         </SelectItem>

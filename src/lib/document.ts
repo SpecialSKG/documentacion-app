@@ -1,10 +1,11 @@
 /**
  * Tipos y esquemas para el modelo de documentos de Mesa de Servicios
+ * VERSIÓN 2.0: Modelo Jerárquico (Categoría → Subcategoría → Ítem)
  */
 
 import { z } from 'zod';
 
-// ========== TIPOS DE CAMPO ==========
+// ========== TIPOS DE CAMPO (sin cambios) ==========
 export const FIELD_TYPES = [
   'Texto',
   'Texto largo',
@@ -25,26 +26,71 @@ export type FieldType = typeof FIELD_TYPES[number];
 
 // ========== ESQUEMAS ZOD ==========
 
+/**
+ * Campo adicional de un ítem (sin cambios)
+ */
 export const CampoAdicionalSchema = z.object({
   titulo: z.string().min(1, 'El título es requerido'),
   tipo: z.enum(FIELD_TYPES),
   requerido: z.boolean().optional().default(false),
 });
 
-export const DetalleRowSchema = z.object({
-  id: z.string(),
-  categoria: z.string().default(''),
-  subcategoria: z.string().default(''),
-  item: z.string().default(''),
-  camposAdicionales: z.array(CampoAdicionalSchema).default([]),
-  detalle: z.string().default(''),
-  sla: z.string().default(''),
-  grupo: z.string().default(''),
-  tipoInformacion: z.string().default(''),
-  requiereDocumento: z.string().default(''),
-  observaciones: z.string().default(''),
+/**
+ * NUEVO: Estructura especial de 2 niveles para Grupo, Grupos Asistencia, Grupos Usuario
+ * Fila 1: título
+ * Filas 2+: contenido (merge vertical)
+ */
+export const GrupoEspecialSchema = z.object({
+  titulo: z.string().default(''),
+  contenido: z.string().default(''), // Multilinea con saltos de línea
 });
 
+/**
+ * ACTUALIZADO: DetalleRow ahora representa un ÍTEM completo
+ * (antes era una fila plana)
+ */
+export const ItemSchema = z.object({
+  id: z.string(),
+  // Referencia al catálogo
+  itemNombre: z.string().default(''), // Nombre del ítem seleccionado del catálogo
+  // Campos adicionales
+  camposAdicionales: z.array(CampoAdicionalSchema).default([]),
+  // Propiedades del ítem
+  detalle: z.string().default(''),
+  sla: z.string().default(''), // Col G
+  grupo: GrupoEspecialSchema.default({ titulo: '', contenido: '' }), // Col H (2 niveles)
+  tipoInformacion: z.string().default(''), // Col I
+  buzon: z.string().default(''), // Col J (NUEVO)
+  formularioZoho: z.string().default(''), // Col L (NUEVO)
+  gruposAsistencia: GrupoEspecialSchema.default({ titulo: '', contenido: '' }), // Col M (NUEVO)
+  gruposUsuario: GrupoEspecialSchema.default({ titulo: '', contenido: '' }), // Col N (NUEVO)
+  observaciones: z.string().default(''),
+  // Campos legacy (mantener compatibilidad temporal)
+  requiereDocumento: z.string().default(''),
+});
+
+/**
+ * NUEVO: Subcategoría (contiene ítems)
+ */
+export const SubcategoriaSchema = z.object({
+  id: z.string(),
+  nombre: z.string().default(''), // Nombre de la subcategoría del catálogo
+  aprobadores: z.string().default(''), // Col K - multilinea, a nivel de subcategoría
+  items: z.array(ItemSchema).default([]),
+});
+
+/**
+ * NUEVO: Categoría (contiene subcategorías)
+ */
+export const CategoriaSchema = z.object({
+  id: z.string(),
+  nombre: z.string().default(''), // Nombre de la categoría del catálogo
+  subcategorias: z.array(SubcategoriaSchema).default([]),
+});
+
+/**
+ * Datos Generales (sin cambios)
+ */
 export const GeneralDataSchema = z.object({
   nombreServicio: z.string().default(''),
   objetivoServicio: z.string().default(''),
@@ -61,28 +107,54 @@ export const GeneralDataSchema = z.object({
   revisado: z.string().default(''),
 });
 
+/**
+ * Flujograma (sin cambios)
+ */
 export const FlowchartSchema = z.object({
   fileName: z.string(),
   mimeType: z.string(),
   base64: z.string(),
 }).optional();
 
+/**
+ * ACTUALIZADO: DocumentDraft ahora usa estructura jerárquica
+ */
 export const DocumentDraftSchema = z.object({
   id: z.string(),
   createdAt: z.string(),
   updatedAt: z.string(),
   status: z.enum(['editing', 'completed']).default('editing'),
   general: GeneralDataSchema,
-  detalle: z.array(DetalleRowSchema).default([]),
+  detalle: z.array(CategoriaSchema).default([]), // CAMBIADO: ahora es array de Categorías
   flowchart: FlowchartSchema,
 });
 
 // ========== TIPOS TYPESCRIPT ==========
 export type CampoAdicional = z.infer<typeof CampoAdicionalSchema>;
-export type DetalleRow = z.infer<typeof DetalleRowSchema>;
+export type GrupoEspecial = z.infer<typeof GrupoEspecialSchema>;
+export type Item = z.infer<typeof ItemSchema>;
+export type Subcategoria = z.infer<typeof SubcategoriaSchema>;
+export type Categoria = z.infer<typeof CategoriaSchema>;
 export type GeneralData = z.infer<typeof GeneralDataSchema>;
 export type Flowchart = z.infer<typeof FlowchartSchema>;
 export type DocumentDraft = z.infer<typeof DocumentDraftSchema>;
+
+// Legacy type alias para compatibilidad temporal
+export type DetalleRow = Item;
+
+// ========== UTILIDADES ==========
+
+/**
+ * Genera un UUID v4 compatible con todos los navegadores
+ * Alternativa a crypto.randomUUID() que no está disponible en todos los entornos
+ */
+function generateUUID(): string {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
 
 // ========== FUNCIONES HELPER ==========
 
@@ -91,33 +163,66 @@ export type DocumentDraft = z.infer<typeof DocumentDraftSchema>;
  */
 export function createEmptyDocument(): DocumentDraft {
   return {
-    id: crypto.randomUUID(),
+    id: generateUUID(),
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     status: 'editing',
     general: GeneralDataSchema.parse({}),
-    detalle: [],
+    detalle: [], // Ahora es array de Categorías
     flowchart: undefined,
   };
 }
 
 /**
- * Crea una nueva fila de detalle vacía
+ * Crea una categoría vacía
  */
-export function createEmptyDetalleRow(): DetalleRow {
+export function createEmptyCategoria(): Categoria {
   return {
-    id: crypto.randomUUID(),
-    categoria: '',
-    subcategoria: '',
-    item: '',
+    id: generateUUID(),
+    nombre: '',
+    subcategorias: [],
+  };
+}
+
+/**
+ * Crea una subcategoría vacía
+ */
+export function createEmptySubcategoria(): Subcategoria {
+  return {
+    id: generateUUID(),
+    nombre: '',
+    aprobadores: '',
+    items: [],
+  };
+}
+
+/**
+ * Crea un ítem vacío
+ */
+export function createEmptyItem(): Item {
+  return {
+    id: generateUUID(),
+    itemNombre: '',
     camposAdicionales: [],
     detalle: '',
     sla: '',
-    grupo: '',
+    grupo: { titulo: '', contenido: '' },
     tipoInformacion: '',
-    requiereDocumento: '',
+    buzon: '',
+    formularioZoho: '',
+    gruposAsistencia: { titulo: '', contenido: '' },
+    gruposUsuario: { titulo: '', contenido: '' },
     observaciones: '',
+    requiereDocumento: '',
   };
+}
+
+/**
+ * Legacy: Crea un ítem vacío (alias)
+ * @deprecated Usar createEmptyItem() en su lugar
+ */
+export function createEmptyDetalleRow(): Item {
+  return createEmptyItem();
 }
 
 /**
@@ -128,5 +233,15 @@ export function createEmptyCampoAdicional(): CampoAdicional {
     titulo: '',
     tipo: 'Texto',
     requerido: false,
+  };
+}
+
+/**
+ * Crea un grupo especial vacío
+ */
+export function createEmptyGrupoEspecial(): GrupoEspecial {
+  return {
+    titulo: '',
+    contenido: '',
   };
 }
