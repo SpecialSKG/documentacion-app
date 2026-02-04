@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useDocumentStore } from '@/stores/docStore';
-import { Categoria, Subcategoria, Item, createEmptyCategoria, createEmptySubcategoria, createEmptyItem } from '@/lib/document';
+import { Categoria, Subcategoria, Item, createEmptyItem } from '@/lib/document';
 import { useCatalogo } from '@/hooks/useCatalogo';
 import {
     Accordion,
@@ -13,10 +13,12 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Trash2, Edit, FolderPlus, FilePlus } from 'lucide-react';
+import { Plus, Trash2, Edit, Library } from 'lucide-react';
 import ItemModal from './ItemModal';
 import SubcategoriaModal from './SubcategoriaModal';
+import AddFromCatalogModal from './AddFromCatalogModal';
 import { toast } from 'sonner';
+import { nanoid } from 'nanoid';
 
 interface CategoriaAccordionProps {
     categorias: Categoria[];
@@ -44,13 +46,45 @@ export default function CategoriaAccordion({ categorias }: CategoriaAccordionPro
     const [selectedSubcat, setSelectedSubcat] = useState<{ id: string; nombre: string; aprobadores: string; categoriaId: string } | null>(null);
     const [isSubcatModalOpen, setIsSubcatModalOpen] = useState(false);
 
-    // === Handlers para Categorías ===
-    const handleAddCategoria = () => {
-        const nuevaCategoria = createEmptyCategoria();
-        addCategoria(nuevaCategoria);
-        toast.success('Categoría creada. Edita su nombre.');
+    // Modal para agregar desde catálogo
+    const [isCatalogModalOpen, setIsCatalogModalOpen] = useState(false);
+
+    // === Handler para agregar desde catálogo ===
+    const handleAddFromCatalog = (categoriaNombre: string, subcategoriaNombre: string, itemNombre: string) => {
+        // Buscar o crear categoría
+        let categoria = categorias.find(c => c.nombre === categoriaNombre);
+        if (!categoria) {
+            categoria = {
+                id: nanoid(),
+                nombre: categoriaNombre,
+                subcategorias: [],
+            };
+            addCategoria(categoria);
+        }
+
+        // Buscar o crear subcategoría
+        let subcategoria = categoria.subcategorias.find(s => s.nombre === subcategoriaNombre);
+        if (!subcategoria) {
+            subcategoria = {
+                id: nanoid(),
+                nombre: subcategoriaNombre,
+                aprobadores: '',
+                items: [],
+            };
+            addSubcategoria(categoria.id, subcategoria);
+        }
+
+        // Crear el ítem con el nombre del catálogo
+        const nuevoItem = {
+            ...createEmptyItem(),
+            itemNombre,
+        };
+        addItem(categoria.id, subcategoria.id, nuevoItem);
+
+        toast.success(`Ítem "${itemNombre}" agregado correctamente`);
     };
 
+    // === Handlers para Categorías ===
     const handleDeleteCategoria = (catId: string) => {
         if (confirm('¿Estás seguro de eliminar esta categoría y todas sus subcategorías e ítems?')) {
             deleteCategoria(catId);
@@ -59,11 +93,6 @@ export default function CategoriaAccordion({ categorias }: CategoriaAccordionPro
     };
 
     // === Handlers para Subcategorías ===
-    const handleAddSubcategoria = (categoriaId: string) => {
-        const nuevaSubcat = createEmptySubcategoria();
-        addSubcategoria(categoriaId, nuevaSubcat);
-        toast.success('Subcategoría creada. Configura su nombre y aprobadores.');
-    };
 
     const handleEditSubcatAprobadores = (catId: string, subcat: Subcategoria) => {
         setSelectedSubcat({
@@ -125,9 +154,9 @@ export default function CategoriaAccordion({ categorias }: CategoriaAccordionPro
         <div className="space-y-4">
             <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold">Estructura Jerárquica</h3>
-                <Button onClick={handleAddCategoria} variant="default">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Agregar Categoría
+                <Button onClick={() => setIsCatalogModalOpen(true)} variant="default">
+                    <Library className="w-4 h-4 mr-2" />
+                    Agregar desde Catálogo
                 </Button>
             </div>
 
@@ -163,15 +192,6 @@ export default function CategoriaAccordion({ categorias }: CategoriaAccordionPro
                             </AccordionTrigger>
                             <AccordionContent className="px-4 pt-4">
                                 <div className="space-y-2">
-                                    <Button
-                                        onClick={() => handleAddSubcategoria(categoria.id)}
-                                        size="sm"
-                                        variant="outline"
-                                        className="mb-3"
-                                    >
-                                        <FolderPlus className="w-4 h-4 mr-2" />
-                                        Agregar Subcategoría
-                                    </Button>
 
                                     {categoria.subcategorias.length === 0 ? (
                                         <p className="text-sm text-gray-500 py-2">No hay subcategorías</p>
@@ -229,7 +249,7 @@ export default function CategoriaAccordion({ categorias }: CategoriaAccordionPro
                                                             variant="outline"
                                                             className="mb-2"
                                                         >
-                                                            <FilePlus className="w-4 h-4 mr-2" />
+                                                            <Plus className="w-4 h-4 mr-2" />
                                                             Agregar Ítem
                                                         </Button>
 
@@ -314,6 +334,13 @@ export default function CategoriaAccordion({ categorias }: CategoriaAccordionPro
                     onSave={handleSaveSubcatAprobadores}
                 />
             )}
+
+            {/* Modal para agregar desde catálogo */}
+            <AddFromCatalogModal
+                isOpen={isCatalogModalOpen}
+                onClose={() => setIsCatalogModalOpen(false)}
+                onSave={handleAddFromCatalog}
+            />
         </div>
     );
 }

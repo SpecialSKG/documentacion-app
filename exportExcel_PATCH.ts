@@ -226,20 +226,20 @@ function fillDetailTableHierarchical(worksheet: ExcelJS.Worksheet, document: Doc
                 setCellValue(
                     worksheet,
                     `${DETAIL_COLS.camposAdicionales}${currentRow}`,
-                    item.camposAdicionales[0]?.titulo || ""
+                    item.campoPrincipal.nombre
                 );
                 setCellValue(
                     worksheet,
                     `${DETAIL_COLS.tipoCampos}${currentRow}`,
-                    item.camposAdicionales[0]?.tipo || "Texto"
+                    item.campoPrincipal.tipoCampo
                 );
 
                 // Filas 2+: campos adicionales
                 if (numCamposAdicionales > 0) {
                     item.camposAdicionales.forEach((campo, idx) => {
                         const row = currentRow + 1 + idx;
-                        setCellValue(worksheet, `${DETAIL_COLS.camposAdicionales}${row}`, campo.titulo);
-                        setCellValue(worksheet, `${DETAIL_COLS.tipoCampos}${row}`, campo.tipo);
+                        setCellValue(worksheet, `${DETAIL_COLS.camposAdicionales}${row}`, campo.nombre);
+                        setCellValue(worksheet, `${DETAIL_COLS.tipoCampos}${row}`, campo.tipoCampo);
                     });
                 }
 
@@ -254,8 +254,8 @@ function fillDetailTableHierarchical(worksheet: ExcelJS.Worksheet, document: Doc
                 mergeCells(worksheet, `${DETAIL_COLS.formularioZoho}${itemStartRow}:${DETAIL_COLS.formularioZoho}${itemEndRow}`);
 
                 // Escribir valores “solo una vez” (arriba del merge)
-                setCellValue(worksheet, `${DETAIL_COLS.categoria}${itemStartRow}`, categoria.nombre);
-                setCellValue(worksheet, `${DETAIL_COLS.subcategoria}${itemStartRow}`, subcategoria.nombre);
+                setCellValue(worksheet, `${DETAIL_COLS.categoria}${itemStartRow}`, categoria.categoriaNombre);
+                setCellValue(worksheet, `${DETAIL_COLS.subcategoria}${itemStartRow}`, subcategoria.subcategoriaNombre);
                 setCellValue(worksheet, `${DETAIL_COLS.sla}${itemStartRow}`, item.sla);
                 setCellValue(worksheet, `${DETAIL_COLS.tipoInformacion}${itemStartRow}`, item.tipoInformacion);
                 setCellValue(worksheet, `${DETAIL_COLS.buzon}${itemStartRow}`, item.buzon);
@@ -306,11 +306,11 @@ function fillDetailTableHierarchical(worksheet: ExcelJS.Worksheet, document: Doc
 async function insertFlowchart(
     workbook: ExcelJS.Workbook,
     worksheet: ExcelJS.Worksheet,
-    flowchart: NonNullable<DocumentDraft["flowchart"]>,
+    flowchart: string,
     lastDetailRow: number
 ): Promise<void> {
     // flowchart viene como dataURL base64 (data:image/png;base64,....)
-    const base64Data = flowchart.base64.split(',')[1];
+    const base64Data = flowchart.split(',')[1];
     if (!base64Data) {
         return;
     }

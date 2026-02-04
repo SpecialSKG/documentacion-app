@@ -65,11 +65,16 @@ export default function StepResumen() {
             const arrayBuffer = await response.arrayBuffer();
             const blob = await exportToExcel(document, arrayBuffer);
 
-            // Descargar
+            // Descargar con el nombre del servicio
             const url = URL.createObjectURL(blob);
             const a = window.document.createElement('a');
             a.href = url;
-            a.download = 'DOCUMENTACION MESA DE SERVICIOS.xlsx';
+            // Usar el nombre del servicio en mayúsculas (sanitizar para evitar caracteres inválidos)
+            const fileName = (document.general.nombreServicio || 'DOCUMENTACION MESA DE SERVICIOS')
+                .toUpperCase()
+                .replace(/[/\\?%*:|"<>]/g, '-') // Reemplazar caracteres inválidos
+                + '.xlsx';
+            a.download = fileName;
             a.click();
             URL.revokeObjectURL(url);
 
