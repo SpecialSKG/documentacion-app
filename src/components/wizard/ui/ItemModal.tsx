@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useDocumentStore } from '@/stores/docStore';
-import { Item, GrupoEspecial, CampoAdicional, createEmptyItem, createEmptyCampoAdicional } from '@/lib/document';
+import { Item, GrupoEspecial, CampoAdicional, createEmptyItem, createEmptyCampoAdicional, FIELD_TYPES } from '@/lib/document';
 import { useDataOptions } from '@/hooks/useDataOptions';
 import { useCatalogo } from '@/hooks/useCatalogo';
 import {
@@ -15,15 +15,10 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
+import { SelectCreatable } from '@/components/ui/SelectCreatable';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Plus, X, Save } from 'lucide-react';
 
 interface ItemModalProps {
@@ -37,6 +32,7 @@ interface ItemModalProps {
 }
 
 export default function ItemModal({ item, isOpen, onClose, onSave, categoriaId, subcategoriaId }: ItemModalProps) {
+    const { document } = useDocumentStore();
     const { slaOptions, tipoCamposOptions, tipoInformacionOptions } = useDataOptions();
     const { categorias, getSubcategorias, getItems } = useCatalogo();
 
@@ -44,18 +40,43 @@ export default function ItemModal({ item, isOpen, onClose, onSave, categoriaId, 
     const [selectedCategoria, setSelectedCategoria] = useState('');
     const [selectedSubcategoria, setSelectedSubcategoria] = useState('');
     const [camposAdicionales, setCamposAdicionales] = useState<CampoAdicional[]>([]);
+    const [useSubcatAprobadores, setUseSubcatAprobadores] = useState(true);
+
+    // Obtener aprobadores de subcategoría para el contexto actual
+    const subcatAprobadores = document.detalle
+        .find(cat => cat.id === categoriaId)
+        ?.subcategorias.find(sub => sub.id === subcategoriaId)
+        ?.aprobadores || '';
 
     // Inicializar estado cuando cambian props
     useEffect(() => {
         if (item) {
             setLocalItem(item);
             setCamposAdicionales(item.camposAdicionales || []);
+
+            // NUEVO: Precargar selects de catálogo en modo edición
+            // Buscar categoria y subcategoria del ítem en el documento actual
+            for (const cat of document.detalle) {
+                for (const subcat of cat.subcategorias) {
+                    if (subcat.items.some(i => i.id === item.id)) {
+                        setSelectedCategoria(cat.nombre);
+                        setSelectedSubcategoria(subcat.nombre);
+                        break;
+                    }
+                }
+            }
+
+            // Determinar si usa aprobadores de subcategoría o propios
+            setUseSubcatAprobadores(!item.aprobadores || item.aprobadores === '');
         } else {
             const newItem = createEmptyItem();
             setLocalItem(newItem);
             setCamposAdicionales([]);
+            setSelectedCategoria('');
+            setSelectedSubcategoria('');
+            setUseSubcatAprobadores(true);
         }
-    }, [item]);
+    }, [item, document.detalle]);
 
     const subcategorias = getSubcategorias(selectedCategoria);
     const items = getItems(selectedCategoria, selectedSubcategoria);
@@ -74,7 +95,7 @@ export default function ItemModal({ item, isOpen, onClose, onSave, categoriaId, 
         }));
     };
 
-    // Campos adicionales
+    //Campos adicionales
     const handleAddCampo = () => {
         setCamposAdicionales([...camposAdicionales, createEmptyCampoAdicional()]);
     };
@@ -89,18 +110,34 @@ export default function ItemModal({ item, isOpen, onClose, onSave, categoriaId, 
         setCamposAdicionales(camposAdicionales.filter((_, i) => i !== index));
     };
 
+    // Manejar checkbox de aprobadores
+    const handleAprobadoresCheckbox = (checked: boolean) => {
+        setUseSubcatAprobadores(checked);
+        if (checked) {
+            // Si heredamos, limpiamos el campo de aprobadores del ítem
+            handleChange('aprobadores', '');
+        }
+    };
+
     const handleSave = () => {
         const finalItem = {
             ...localItem,
             camposAdicionales,
+            // Si usa aprobadores de subcategoría, aseguramos que el campo quede vacío
+            aprobadores: useSubcatAprobadores ? '' : localItem.aprobadores,
         };
         onSave(finalItem, categoriaId || '', subcategoriaId || '');
         onClose();
     };
 
+    // Convertir opciones para SelectCreatable
+    const categoriasOptions = categorias.map(cat => ({ value: cat.name, label: cat.name }));
+    const subcategoriasOptions = subcategorias.map(sub => ({ value: sub.name, label: sub.name }));
+    const itemsOptions = items.map(itm => ({ value: itm.name, label: itm.name }));
+
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="sm:max-w-4xl lg:max-w-5xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle>{item ? 'Editar Ítem' : 'Agregar Nuevo Ítem'}</DialogTitle>
                     <DialogDescription>
@@ -118,60 +155,52 @@ export default function ItemModal({ item, isOpen, onClose, onSave, categoriaId, 
                             {/* Categoría */}
                             <div>
                                 <Label htmlFor="categoria">Categoría *</Label>
-                                <Select value={selectedCategoria} onValueChange={setSelectedCategoria}>
-                                    <SelectTrigger id="categoria">
-                                        <SelectValue placeholder="Selecciona una categoría" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {categorias.map((cat) => (
-                                            <SelectItem key={cat.name} value={cat.name}>
-                                                {cat.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                <SelectCreatable
+                                    value={selectedCategoria}
+                                    onValueChange={setSelectedCategoria}
+                                    options={categoriasOptions}
+                                    placeholder="Selecciona o escribe una categoría"
+                                    disabled={!!item}
+                                />
+                                {item && (
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                        No puedes cambiar la categoría al editar un ítem
+                                    </p>
+                                )}
                             </div>
 
                             {/* Subcategoría */}
                             <div>
                                 <Label htmlFor="subcategoria">Subcategoría *</Label>
-                                <Select
+                                <SelectCreatable
                                     value={selectedSubcategoria}
                                     onValueChange={setSelectedSubcategoria}
-                                    disabled={!selectedCategoria}
-                                >
-                                    <SelectTrigger id="subcategoria">
-                                        <SelectValue placeholder="Selecciona una subcategoría" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {subcategorias.map((sub) => (
-                                            <SelectItem key={sub.name} value={sub.name}>
-                                                {sub.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                    options={subcategoriasOptions}
+                                    placeholder="Selecciona o escribe una subcategoría"
+                                    disabled={!selectedCategoria || !!item}
+                                />
+                                {item && (
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                        No puedes cambiar la subcategoría al editar un ítem
+                                    </p>
+                                )}
                             </div>
 
                             {/* Ítem/Artículo */}
                             <div>
                                 <Label htmlFor="itemNombre">Artículo / Ítem *</Label>
-                                <Select
+                                <SelectCreatable
                                     value={localItem.itemNombre}
-                                    onValueChange={(v) => handleChange('itemNombre', v)}
-                                    disabled={!selectedSubcategoria}
-                                >
-                                    <SelectTrigger id="itemNombre">
-                                        <SelectValue placeholder="Selecciona un artículo" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {items.map((itm) => (
-                                            <SelectItem key={itm.name} value={itm.name}>
-                                                {itm.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                    onValueChange={(value) => handleChange('itemNombre', value)}
+                                    options={itemsOptions}
+                                    placeholder="Selecciona o escribe un artículo"
+                                    disabled={!selectedSubcategoria || !!item}
+                                />
+                                {item && (
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                        No puedes cambiar el nombre del ítem al editar
+                                    </p>
+                                )}
                             </div>
                         </CardContent>
                     </Card>
@@ -185,18 +214,12 @@ export default function ItemModal({ item, isOpen, onClose, onSave, categoriaId, 
                             {/* SLA (Col G) */}
                             <div>
                                 <Label htmlFor="sla">SLA</Label>
-                                <Select value={localItem.sla} onValueChange={(v) => handleChange('sla', v)}>
-                                    <SelectTrigger id="sla">
-                                        <SelectValue placeholder="Selecciona un SLA" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {slaOptions.map((opt) => (
-                                            <SelectItem key={opt.value} value={opt.value}>
-                                                {opt.label}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                <SelectCreatable
+                                    value={localItem.sla}
+                                    onValueChange={(value) => handleChange('sla', value)}
+                                    options={slaOptions}
+                                    placeholder="Selecciona o escribe un SLA"
+                                />
                             </div>
 
                             {/* Grupo (Col H) - Estructura 2 niveles */}
@@ -208,7 +231,7 @@ export default function ItemModal({ item, isOpen, onClose, onSave, categoriaId, 
                                     onChange={(e) => handleGrupoChange('titulo', e.target.value, 'grupo')}
                                 />
                                 <Textarea
-                                    placeholder="Contenido del grupo (filas 2+, multilinea)"
+                                    placeholder="Contenido del grupo (filas 2+, multilínea)"
                                     value={localItem.grupo.contenido}
                                     onChange={(e) => handleGrupoChange('contenido', e.target.value, 'grupo')}
                                     rows={3}
@@ -218,21 +241,12 @@ export default function ItemModal({ item, isOpen, onClose, onSave, categoriaId, 
                             {/* Tipo de Información (Col I) */}
                             <div>
                                 <Label htmlFor="tipoInformacion">Tipo de Información</Label>
-                                <Select
+                                <SelectCreatable
                                     value={localItem.tipoInformacion}
-                                    onValueChange={(v) => handleChange('tipoInformacion', v)}
-                                >
-                                    <SelectTrigger id="tipoInformacion">
-                                        <SelectValue placeholder="Selecciona tipo de información" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {tipoInformacionOptions.map((opt) => (
-                                            <SelectItem key={opt.value} value={opt.value}>
-                                                {opt.label}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                    onValueChange={(value) => handleChange('tipoInformacion', value)}
+                                    options={tipoInformacionOptions}
+                                    placeholder="Selecciona o escribe el tipo de información"
+                                />
                             </div>
 
                             {/* Buzón (Col J) */}
@@ -244,6 +258,42 @@ export default function ItemModal({ item, isOpen, onClose, onSave, categoriaId, 
                                     value={localItem.buzon}
                                     onChange={(e) => handleChange('buzon', e.target.value)}
                                 />
+                            </div>
+
+                            {/* NUEVO v2.3: Aprobadores (Col K) - Con herencia de subcategoría */}
+                            <div className="space-y-3 p-4 border-2 border-purple-200 rounded-lg bg-purple-50/30">
+                                <Label>Aprobadores (Col K)</Label>
+
+                                <div className="flex items-center space-x-2">
+                                    <Checkbox
+                                        id="inheritAprobadores"
+                                        checked={useSubcatAprobadores}
+                                        onCheckedChange={handleAprobadoresCheckbox}
+                                    />
+                                    <label
+                                        htmlFor="inheritAprobadores"
+                                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                    >
+                                        Heredar aprobadores de la subcategoría
+                                    </label>
+                                </div>
+
+                                {useSubcatAprobadores ? (
+                                    <div className="bg-gray-100 p-3 rounded border">
+                                        <p className="text-xs text-gray-600 mb-1">Aprobadores de la subcategoría:</p>
+                                        <p className="text-sm whitespace-pre-wrap">
+                                            {subcatAprobadores || <span className="text-gray-400 italic">(Sin aprobadores definidos en la subcategoría)</span>}
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <Textarea
+                                        placeholder="Aprobadores específicos para este ítem (uno por línea)"
+                                        value={localItem.aprobadores || ''}
+                                        onChange={(e) => handleChange('aprobadores', e.target.value)}
+                                        rows={4}
+                                        className="font-mono text-sm"
+                                    />
+                                )}
                             </div>
 
                             {/* Formulario Zoho (Col L) */}
@@ -266,7 +316,7 @@ export default function ItemModal({ item, isOpen, onClose, onSave, categoriaId, 
                                     onChange={(e) => handleGrupoChange('titulo', e.target.value, 'gruposAsistencia')}
                                 />
                                 <Textarea
-                                    placeholder="Contenido (filas 2+, multilinea)"
+                                    placeholder="Contenido (filas 2+, multilínea)"
                                     value={localItem.gruposAsistencia.contenido}
                                     onChange={(e) => handleGrupoChange('contenido', e.target.value, 'gruposAsistencia')}
                                     rows={3}
@@ -282,7 +332,7 @@ export default function ItemModal({ item, isOpen, onClose, onSave, categoriaId, 
                                     onChange={(e) => handleGrupoChange('titulo', e.target.value, 'gruposUsuario')}
                                 />
                                 <Textarea
-                                    placeholder="Contenido (filas 2+, multilinea)"
+                                    placeholder="Contenido (filas 2+, multilínea)"
                                     value={localItem.gruposUsuario.contenido}
                                     onChange={(e) => handleGrupoChange('contenido', e.target.value, 'gruposUsuario')}
                                     rows={3}
@@ -323,22 +373,16 @@ export default function ItemModal({ item, isOpen, onClose, onSave, categoriaId, 
                                                 onChange={(e) => handleUpdateCampo(index, 'titulo', e.target.value)}
                                             />
 
-                                            {/* Tipo de campo */}
-                                            <Select
-                                                value={campo.tipo}
-                                                onValueChange={(v) => handleUpdateCampo(index, 'tipo', v)}
-                                            >
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Tipo de campo" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {tipoCamposOptions.map((type) => (
-                                                        <SelectItem key={type.value} value={type.value}>
-                                                            {type.label}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
+                                            {/* Tipo de campo - MEJORADO con SelectCreatable y placeholder */}
+                                            <div>
+                                                <Label className="text-xs text-gray-600">Tipo de campo adicional</Label>
+                                                <SelectCreatable
+                                                    value={campo.tipo}
+                                                    onValueChange={(value) => handleUpdateCampo(index, 'tipo', value as any)}
+                                                    options={tipoCamposOptions}
+                                                    placeholder="Selecciona tipo (línea única, multilínea, lista, etc.)"
+                                                />
+                                            </div>
                                         </div>
 
                                         <Button

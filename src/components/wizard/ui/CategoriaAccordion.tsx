@@ -17,6 +17,7 @@ import { Plus, Trash2, Edit, Library } from 'lucide-react';
 import ItemModal from './ItemModal';
 import SubcategoriaModal from './SubcategoriaModal';
 import AddFromCatalogModal from './AddFromCatalogModal';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { toast } from 'sonner';
 import { nanoid } from 'nanoid';
 
@@ -48,6 +49,15 @@ export default function CategoriaAccordion({ categorias }: CategoriaAccordionPro
 
     // Modal para agregar desde catálogo
     const [isCatalogModalOpen, setIsCatalogModalOpen] = useState(false);
+
+    // Estados para confirmaciones
+    const [deleteConfirm, setDeleteConfirm] = useState<{
+        open: boolean;
+        type: 'categoria' | 'subcategoria' | 'item';
+        categoriaId?: string;
+        subcategoriaId?: string;
+        itemId?: string;
+    }>({ open: false, type: 'categoria' });
 
     // === Handler para agregar desde catálogo ===
     const handleAddFromCatalog = (categoriaNombre: string, subcategoriaNombre: string, itemNombre: string) => {
@@ -86,10 +96,11 @@ export default function CategoriaAccordion({ categorias }: CategoriaAccordionPro
 
     // === Handlers para Categorías ===
     const handleDeleteCategoria = (catId: string) => {
-        if (confirm('¿Estás seguro de eliminar esta categoría y todas sus subcategorías e ítems?')) {
-            deleteCategoria(catId);
-            toast.success('Categoría eliminada');
-        }
+        setDeleteConfirm({
+            open: true,
+            type: 'categoria',
+            categoriaId: catId,
+        });
     };
 
     // === Handlers para Subcategorías ===
@@ -112,10 +123,12 @@ export default function CategoriaAccordion({ categorias }: CategoriaAccordionPro
     };
 
     const handleDeleteSubcategoria = (catId: string, subcatId: string) => {
-        if (confirm('¿Estás seguro de eliminar esta subcategoría y todos sus ítems?')) {
-            deleteSubcategoria(catId, subcatId);
-            toast.success('Subcategoría eliminada');
-        }
+        setDeleteConfirm({
+            open: true,
+            type: 'subcategoria',
+            categoriaId: catId,
+            subcategoriaId: subcatId,
+        });
     };
 
     // === Handlers para Ítems ===
@@ -144,10 +157,31 @@ export default function CategoriaAccordion({ categorias }: CategoriaAccordionPro
     };
 
     const handleDeleteItem = (catId: string, subcatId: string, itemId: string) => {
-        if (confirm('¿Estás seguro de eliminar este ítem?')) {
-            deleteItem(catId, subcatId, itemId);
+        setDeleteConfirm({
+            open: true,
+            type: 'item',
+            categoriaId: catId,
+            subcategoriaId: subcatId,
+            itemId: itemId,
+        });
+    };
+
+    // Confirmar eliminación
+    const confirmDelete = () => {
+        const { type, categoriaId, subcategoriaId, itemId } = deleteConfirm;
+
+        if (type === 'categoria' && categoriaId) {
+            deleteCategoria(categoriaId);
+            toast.success('Categoría eliminada');
+        } else if (type === 'subcategoria' && categoriaId && subcategoriaId) {
+            deleteSubcategoria(categoriaId, subcategoriaId);
+            toast.success('Subcategoría eliminada');
+        } else if (type === 'item' && categoriaId && subcategoriaId && itemId) {
+            deleteItem(categoriaId, subcategoriaId, itemId);
             toast.success('Ítem eliminado');
         }
+
+        setDeleteConfirm({ open: false, type: 'categoria' });
     };
 
     return (
@@ -168,8 +202,8 @@ export default function CategoriaAccordion({ categorias }: CategoriaAccordionPro
                 <Accordion type="multiple" className="space-y-2">
                     {categorias.map((categoria) => (
                         <AccordionItem key={categoria.id} value={categoria.id} className="border rounded-lg">
-                            <AccordionTrigger className="px-4 hover:no-underline">
-                                <div className="flex items-center justify-between w-full pr-4">
+                            <div className="flex items-center px-4 gap-2">
+                                <AccordionTrigger className="flex-1 hover:no-underline">
                                     <div className="flex items-center gap-3">
                                         <span className="font-semibold text-blue-700">
                                             📁 {categoria.nombre || '(Sin nombre)'}
@@ -178,18 +212,15 @@ export default function CategoriaAccordion({ categorias }: CategoriaAccordionPro
                                             {categoria.subcategorias.length} subcategorías
                                         </Badge>
                                     </div>
-                                    <Button
-                                        variant="destructive"
-                                        size="sm"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleDeleteCategoria(categoria.id);
-                                        }}
-                                    >
-                                        <Trash2 className="w-4 h-4" />
-                                    </Button>
-                                </div>
-                            </AccordionTrigger>
+                                </AccordionTrigger>
+                                <Button
+                                    variant="destructive"
+                                    size="sm"
+                                    onClick={() => handleDeleteCategoria(categoria.id)}
+                                >
+                                    <Trash2 className="w-4 h-4" />
+                                </Button>
+                            </div>
                             <AccordionContent className="px-4 pt-4">
                                 <div className="space-y-2">
 
@@ -201,10 +232,10 @@ export default function CategoriaAccordion({ categorias }: CategoriaAccordionPro
                                                 <AccordionItem
                                                     key={subcat.id}
                                                     value={subcat.id}
-                                                    className="border-l-4 border-l-green-500 rounded"
+                                                    className="border-l-2 border-green-200 pl-2"
                                                 >
-                                                    <AccordionTrigger className="px-3 py-2 hover:no-underline">
-                                                        <div className="flex items-center justify-between w-full pr-3">
+                                                    <div className="flex items-center gap-2">
+                                                        <AccordionTrigger className="flex-1 py-2 hover:no-underline">
                                                             <div className="flex items-center gap-2">
                                                                 <span className="text-sm font-medium text-green-700">
                                                                     📂 {subcat.nombre || '(Sin nombre)'}
@@ -218,30 +249,24 @@ export default function CategoriaAccordion({ categorias }: CategoriaAccordionPro
                                                                     </Badge>
                                                                 )}
                                                             </div>
-                                                            <div className="flex gap-1">
-                                                                <Button
-                                                                    variant="outline"
-                                                                    size="sm"
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        handleEditSubcatAprobadores(categoria.id, subcat);
-                                                                    }}
-                                                                >
-                                                                    <Edit className="w-3 h-3" />
-                                                                </Button>
-                                                                <Button
-                                                                    variant="destructive"
-                                                                    size="sm"
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        handleDeleteSubcategoria(categoria.id, subcat.id);
-                                                                    }}
-                                                                >
-                                                                    <Trash2 className="w-3 h-3" />
-                                                                </Button>
-                                                            </div>
+                                                        </AccordionTrigger>
+                                                        <div className="flex gap-1">
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                onClick={() => handleEditSubcatAprobadores(categoria.id, subcat)}
+                                                            >
+                                                                <Edit className="w-3 h-3" />
+                                                            </Button>
+                                                            <Button
+                                                                variant="destructive"
+                                                                size="sm"
+                                                                onClick={() => handleDeleteSubcategoria(categoria.id, subcat.id)}
+                                                            >
+                                                                <Trash2 className="w-3 h-3" />
+                                                            </Button>
                                                         </div>
-                                                    </AccordionTrigger>
+                                                    </div>
                                                     <AccordionContent className="px-3 pt-2">
                                                         <Button
                                                             onClick={() => handleAddItem(categoria.id, subcat.id)}
@@ -340,6 +365,30 @@ export default function CategoriaAccordion({ categorias }: CategoriaAccordionPro
                 isOpen={isCatalogModalOpen}
                 onClose={() => setIsCatalogModalOpen(false)}
                 onSave={handleAddFromCatalog}
+            />
+
+            {/* Dialog de confirmación para eliminaciones */}
+            <ConfirmDialog
+                open={deleteConfirm.open}
+                onOpenChange={(open) => setDeleteConfirm({ ...deleteConfirm, open })}
+                onConfirm={confirmDelete}
+                title={
+                    deleteConfirm.type === 'categoria'
+                        ? 'Eliminar Categoría'
+                        : deleteConfirm.type === 'subcategoria'
+                            ? 'Eliminar Subcategoría'
+                            : 'Eliminar Ítem'
+                }
+                description={
+                    deleteConfirm.type === 'categoria'
+                        ? '¿Estás seguro de eliminar esta categoría y todas sus subcategorías e ítems? Esta acción no se puede deshacer.'
+                        : deleteConfirm.type === 'subcategoria'
+                            ? '¿Estás seguro de eliminar esta subcategoría y todos sus ítems? Esta acción no se puede deshacer.'
+                            : '¿Estás seguro de eliminar este ítem? Esta acción no se puede deshacer.'
+                }
+                confirmText="Eliminar"
+                cancelText="Cancelar"
+                variant="destructive"
             />
         </div>
     );

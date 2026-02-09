@@ -16,13 +16,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
+import { SelectCreatable } from '@/components/ui/SelectCreatable';
 import { useDataOptions } from '@/hooks/useDataOptions';
 
 export default function StepGeneral() {
@@ -117,20 +111,14 @@ export default function StepGeneral() {
                                     render={({ field }) => (
                                         <FormItem className="w-full">
                                             <FormLabel>Ámbito</FormLabel>
-                                            <Select onValueChange={field.onChange} value={field.value}>
-                                                <FormControl>
-                                                    <SelectTrigger className="w-full" aria-label="Seleccionar ámbito">
-                                                        <SelectValue placeholder="Selecciona un ámbito" />
-                                                    </SelectTrigger>
-                                                </FormControl>
-                                                <SelectContent>
-                                                    {ambitoOptions.map((option) => (
-                                                        <SelectItem key={option.value} value={option.value}>
-                                                            {option.label}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
+                                            <FormControl>
+                                                <SelectCreatable
+                                                    value={field.value}
+                                                    onValueChange={field.onChange}
+                                                    options={ambitoOptions}
+                                                    placeholder="Selecciona o escribe un ámbito"
+                                                />
+                                            </FormControl>
                                             <FormMessage />
                                         </FormItem>
                                     )}
@@ -146,20 +134,14 @@ export default function StepGeneral() {
                                     render={({ field }) => (
                                         <FormItem className="w-full">
                                             <FormLabel>Sitio</FormLabel>
-                                            <Select onValueChange={field.onChange} value={field.value}>
-                                                <FormControl>
-                                                    <SelectTrigger className="w-full" aria-label="Seleccionar sitio">
-                                                        <SelectValue placeholder="Selecciona un sitio" />
-                                                    </SelectTrigger>
-                                                </FormControl>
-                                                <SelectContent>
-                                                    {sitiosOptions.map((option) => (
-                                                        <SelectItem key={option.value} value={option.value}>
-                                                            {option.label}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
+                                            <FormControl>
+                                                <SelectCreatable
+                                                    value={field.value}
+                                                    onValueChange={field.onChange}
+                                                    options={sitiosOptions}
+                                                    placeholder="Selecciona o escribe un sitio"
+                                                />
+                                            </FormControl>
                                             <FormMessage />
                                         </FormItem>
                                     )}
@@ -172,20 +154,14 @@ export default function StepGeneral() {
                                     render={({ field }) => (
                                         <FormItem className="w-full">
                                             <FormLabel>¿Requiere Reportes?</FormLabel>
-                                            <Select onValueChange={field.onChange} value={field.value}>
-                                                <FormControl>
-                                                    <SelectTrigger className="w-full" aria-label="Requiere reportes">
-                                                        <SelectValue placeholder="Selecciona una opción" />
-                                                    </SelectTrigger>
-                                                </FormControl>
-                                                <SelectContent>
-                                                    {requiereReportesOptions.map((option) => (
-                                                        <SelectItem key={option.value} value={option.value}>
-                                                            {option.label}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
+                                            <FormControl>
+                                                <SelectCreatable
+                                                    value={field.value}
+                                                    onValueChange={field.onChange}
+                                                    options={requiereReportesOptions}
+                                                    placeholder="¿Requiere reportes?"
+                                                />
+                                            </FormControl>
                                             <FormMessage />
                                         </FormItem>
                                     )}

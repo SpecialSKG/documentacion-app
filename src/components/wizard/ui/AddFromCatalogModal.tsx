@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SelectCreatable } from '@/components/ui/SelectCreatable';
 import { useCatalogo } from '@/hooks/useCatalogo';
 
 interface AddFromCatalogModalProps {
@@ -54,6 +54,11 @@ export default function AddFromCatalogModal({ isOpen, onClose, onSave }: AddFrom
 
     const canSave = selectedCategoria && selectedSubcategoria && selectedItem;
 
+    // Convertir opciones para SelectCreatable
+    const categoriasOptions = categorias.map(cat => ({ value: cat.name, label: cat.name }));
+    const subcategoriasOptions = subcategorias.map(sub => ({ value: sub.name, label: sub.name }));
+    const itemsOptions = items.map(itm => ({ value: itm.name, label: itm.name }));
+
     return (
         <Dialog open={isOpen} onOpenChange={handleClose}>
             <DialogContent className="sm:max-w-[500px]">
@@ -65,64 +70,36 @@ export default function AddFromCatalogModal({ isOpen, onClose, onSave }: AddFrom
                     {/* Categoría */}
                     <div className="space-y-2">
                         <Label htmlFor="categoria">Categoría</Label>
-                        <Select value={selectedCategoria} onValueChange={setSelectedCategoria}>
-                            <SelectTrigger id="categoria">
-                                <SelectValue placeholder="Selecciona una categoría" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {categorias.map((cat) => (
-                                    <SelectItem key={cat.name} value={cat.name}>
-                                        {cat.name}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                        <SelectCreatable
+                            value={selectedCategoria}
+                            onValueChange={setSelectedCategoria}
+                            options={categoriasOptions}
+                            placeholder="Selecciona o escribe una categoría"
+                        />
                     </div>
 
                     {/* Subcategoría */}
                     <div className="space-y-2">
                         <Label htmlFor="subcategoria">Subcategoría</Label>
-                        <Select
+                        <SelectCreatable
                             value={selectedSubcategoria}
                             onValueChange={setSelectedSubcategoria}
+                            options={subcategoriasOptions}
+                            placeholder="Selecciona o escribe una subcategoría"
                             disabled={!selectedCategoria}
-                        >
-                            <SelectTrigger id="subcategoria">
-                                <SelectValue placeholder={
-                                    selectedCategoria ? "Selecciona una subcategoría" : "Primero selecciona una categoría"
-                                } />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {subcategorias.map((subcat) => (
-                                    <SelectItem key={subcat.name} value={subcat.name}>
-                                        {subcat.name}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                        />
                     </div>
 
                     {/* Ítem */}
                     <div className="space-y-2">
                         <Label htmlFor="item">Artículo / Ítem</Label>
-                        <Select
+                        <SelectCreatable
                             value={selectedItem}
                             onValueChange={setSelectedItem}
+                            options={itemsOptions}
+                            placeholder="Selecciona o escribe un artículo"
                             disabled={!selectedSubcategoria}
-                        >
-                            <SelectTrigger id="item">
-                                <SelectValue placeholder={
-                                    selectedSubcategoria ? "Selecciona un ítem" : "Primero selecciona una subcategoría"
-                                } />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {items.map((item) => (
-                                    <SelectItem key={item.name} value={item.name}>
-                                        {item.name}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                        />
                     </div>
                 </div>
 

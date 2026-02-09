@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,11 +11,17 @@ import { toast } from 'sonner';
 export default function DashboardPage() {
     const router = useRouter();
     const { load, clear, document } = useDocumentStore();
+    const [hasDraft, setHasDraft] = useState(false);
 
     useEffect(() => {
         // Cargar documento guardado al iniciar
         load();
     }, [load]);
+
+    useEffect(() => {
+        // Actualizar hasDraft después del montaje para evitar hydration mismatch
+        setHasDraft(document.updatedAt !== document.createdAt || document.detalle.length > 0);
+    }, [document]);
 
     const handleNewDocument = () => {
         router.push('/nuevo?step=1');
@@ -27,8 +33,6 @@ export default function DashboardPage() {
             toast.success('Documento limpiado correctamente');
         }
     };
-
-    const hasDraft = document.updatedAt !== document.createdAt || document.detalle.length > 0;
 
     return (
         <div className="min-h-screen bg-gray-50">
