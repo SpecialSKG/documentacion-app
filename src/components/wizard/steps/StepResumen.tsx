@@ -69,11 +69,11 @@ export default function StepResumen() {
             const url = URL.createObjectURL(blob);
             const a = window.document.createElement('a');
             a.href = url;
-            // Usar el nombre del servicio en mayúsculas (sanitizar para evitar caracteres inválidos)
-            const fileName = (document.general.nombreServicio || 'DOCUMENTACION MESA DE SERVICIOS')
-                .toUpperCase()
-                .replace(/[/\\?%*:|"<>]/g, '-') // Reemplazar caracteres inválidos
-                + '.xlsx';
+            // Formato: "DOCUMENTACION - NOMBRE DEL SERVICIO.xlsx"
+            const serviceName = document.general.nombreServicio
+                ? document.general.nombreServicio.toUpperCase().replace(/[/\\?%*:|"<>]/g, '-')
+                : 'MESA DE SERVICIOS';
+            const fileName = `DOCUMENTACION - ${serviceName}.xlsx`;
             a.download = fileName;
             a.click();
             URL.revokeObjectURL(url);

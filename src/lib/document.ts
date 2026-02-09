@@ -61,6 +61,8 @@ export const ItemSchema = z.object({
   grupo: GrupoEspecialSchema.default({ titulo: '', contenido: '' }), // Col H (2 niveles)
   tipoInformacion: z.string().default(''), // Col I
   buzon: z.string().default(''), // Col J (NUEVO)
+  // NUEVO v2.3: Aprobadores a nivel ítem (opcional, hereda de subcategoría si está vacío)
+  aprobadores: z.string().default('').optional(), // Col K - override de subcategoría
   formularioZoho: z.string().default(''), // Col L (NUEVO)
   gruposAsistencia: GrupoEspecialSchema.default({ titulo: '', contenido: '' }), // Col M (NUEVO)
   gruposUsuario: GrupoEspecialSchema.default({ titulo: '', contenido: '' }), // Col N (NUEVO)
@@ -209,6 +211,7 @@ export function createEmptyItem(): Item {
     grupo: { titulo: '', contenido: '' },
     tipoInformacion: '',
     buzon: '',
+    aprobadores: '', // NUEVO v2.3: aprobadores a nivel ítem
     formularioZoho: '',
     gruposAsistencia: { titulo: '', contenido: '' },
     gruposUsuario: { titulo: '', contenido: '' },
