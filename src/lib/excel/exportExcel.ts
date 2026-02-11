@@ -1,17 +1,6 @@
 /**
  * Exportación a Excel usando el template oficial
  * VERSIÓN 2.4: merges + estilos dinámicos (sin depender de “bloques pre-dibujados”)
- *
- * Objetivos:
- * - Mantener el flujograma SIEMPRE debajo del detalle (empujando filas si hace falta).
- * - Reconstruir la tabla de detalle de forma 100% dinámica (categorías/subcategorías/ítems/campos).
- * - Reaplicar estilos (fuente, bordes, wraps, separadores y merges) para que el export se parezca al template.
- *
- * Notas importantes:
- * - El template trae merges/estilos “de maqueta” en el área de detalle. Para evitar conflictos:
- *   1) capturamos estilos de referencia del template,
- *   2) des-merge + limpiamos valores en el área,
- *   3) reconstruimos detalle con merges y estilos.
  */
 
 import ExcelJS from 'exceljs';
@@ -27,8 +16,27 @@ import {
     DEFAULT_DOCUMENT_TITLE,
 } from './excelAnchors';
 
-/** Columnas esperadas del template (fallback si excelAnchors no calza). */
-const FALLBACK_DETAIL_COLS = {
+const DETAIL_FONT = { name: 'Arial', size: 11 };
+const HEADER_FONT = { name: 'Arial', size: 14, bold: true };
+
+/** Columnas esperadas del template. */
+type DetailCols = {
+    categoria: string;
+    subcategoria: string;
+    item: string;
+    camposAdicionales: string;
+    tipoCampos: string;
+    sla: string;
+    grupo: string;
+    tipoInformacion: string;
+    buzon: string;
+    aprobadores: string;
+    formularioZoho: string;
+    gruposAsistencia: string;
+    gruposUsuario: string;
+};
+
+const FALLBACK_DETAIL_COLS: DetailCols = {
     categoria: 'B',
     subcategoria: 'C',
     item: 'D',
@@ -42,9 +50,7 @@ const FALLBACK_DETAIL_COLS = {
     formularioZoho: 'L',
     gruposAsistencia: 'M',
     gruposUsuario: 'N',
-} as const;
-
-type DetailCols = { [K in keyof typeof FALLBACK_DETAIL_COLS]: string };
+};
 
 type TemplateStyles = {
     baseCell: Partial<ExcelJS.Style>;
@@ -80,8 +86,9 @@ function resolveAnchors(worksheet: ExcelJS.Worksheet): {
     flowchartColStart: number;
     cols: DetailCols;
 } {
-    const colsFromAnchor = (DETAIL_COLS_ANCHOR || {}) as any;
+    const colsFromAnchor = (DETAIL_COLS_ANCHOR || {}) as Partial<DetailCols>;
 
+    // objeto MUTABLE; no hay readonly aquí
     const cols: DetailCols = {
         ...FALLBACK_DETAIL_COLS,
         ...colsFromAnchor,
@@ -94,7 +101,9 @@ function resolveAnchors(worksheet: ExcelJS.Worksheet): {
 
     // Validación rápida: en (detailStartRow - 2) debería estar el header "CATEGORÍA"
     const headerRowGuess = detailStartRow - 2;
-    const headerGuessValue = getCellText(worksheet.getCell(`${cols.categoria}${headerRowGuess}`).value).toUpperCase();
+    const headerGuessValue = getCellText(
+        worksheet.getCell(`${cols.categoria}${headerRowGuess}`).value
+    ).toUpperCase();
 
     const looksOk = headerGuessValue.includes('CATEG');
 
@@ -107,8 +116,10 @@ function resolveAnchors(worksheet: ExcelJS.Worksheet): {
         for (let c = 1; c <= 30; c++) {
             const cell = worksheet.getCell(r, c);
             const text = getCellText(cell.value).toUpperCase().trim();
+
             if (text === 'CATEGORÍA' || text === 'CATEGORIA') {
                 const colLetter = columnIndexToLetter(c);
+
                 cols.categoria = colLetter;
                 cols.subcategoria = columnIndexToLetter(c + 1);
                 cols.item = columnIndexToLetter(c + 2);
@@ -125,6 +136,7 @@ function resolveAnchors(worksheet: ExcelJS.Worksheet): {
 
                 detailStartRow = r + 2; // hay una fila “de separación” (ej: r=18 -> start=20)
             }
+
             const text2 = getCellText(cell.value).toUpperCase().trim();
             if (text2 === 'FLUJOGRAMA') {
                 flowchartTemplateLabelRow = r;
@@ -137,26 +149,25 @@ function resolveAnchors(worksheet: ExcelJS.Worksheet): {
 }
 
 /**
- * Captura estilos “de referencia” del template antes de limpiar/unmergear el detalle.
- * Esto evita hardcodear fuentes/colores si el template cambia ligeramente.
+ * Captura estilos “de referencia” del template antes de limpiar/unmergear.
  */
 function captureTemplateStyles(
     worksheet: ExcelJS.Worksheet,
     detailStartRow: number,
-    cols: DetailCols
+    cols: DetailCols,
 ): TemplateStyles {
-    const rowRef = detailStartRow;     // ej 20
-    const separatorRowRef = detailStartRow - 1; // ej 19
+    const rowRef = detailStartRow;
+    const separatorRowRef = detailStartRow - 1;
 
     const baseCell = worksheet.getCell(`${cols.item}${rowRef}`).style || {};
     const categoriaCell = worksheet.getCell(`${cols.categoria}${rowRef}`).style || {};
     const subcategoriaCell = worksheet.getCell(`${cols.subcategoria}${rowRef}`).style || {};
     const separatorRowCell = worksheet.getCell(`${cols.categoria}${separatorRowRef}`).style || {};
 
-    // Outer border color del template (normalmente negro)
     const outerBorderColorARGB =
         // @ts-ignore
-        (worksheet.getCell(`${cols.categoria}${rowRef}`).style?.border?.left?.color?.argb as string) || 'FF000000';
+        (worksheet.getCell(`${cols.categoria}${rowRef}`).style?.border?.left?.color?.argb as string) ||
+        'FF000000';
 
     return {
         baseCell: deepClone(baseCell),
@@ -168,11 +179,11 @@ function captureTemplateStyles(
 }
 
 /**
- * Exporta el documento a Excel con estructura jerárquica
+ * Exporta el documento a Excel con estructura jerárquica.
  */
 export async function exportToExcel(
     document: DocumentDraft,
-    templateArrayBuffer: ArrayBuffer
+    templateArrayBuffer: ArrayBuffer,
 ): Promise<Blob> {
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.load(templateArrayBuffer);
@@ -182,38 +193,63 @@ export async function exportToExcel(
         throw new Error(`No se encontró la hoja "${SHEET_NAME}" en el template`);
     }
 
-    const { detailStartRow, flowchartTemplateLabelRow, flowchartColStart, cols } = resolveAnchors(worksheet);
+    const { detailStartRow, flowchartTemplateLabelRow, flowchartColStart, cols } =
+        resolveAnchors(worksheet);
     const templateStyles = captureTemplateStyles(worksheet, detailStartRow, cols);
 
     // 1) Datos generales
     fillGeneralData(worksheet, document);
 
-    // 2) Calculamos cuánto crecerá el detalle para empujar el flujograma (si existe)
+    // 2) Calculamos cuánto crecerá el detalle para empujar el flujograma
     const estimatedLastDetailRow = estimateLastDetailRow(document.detalle, detailStartRow);
 
     if (estimatedLastDetailRow >= detailStartRow) {
-        shiftFlowchartBlockIfNeeded(worksheet, estimatedLastDetailRow, flowchartTemplateLabelRow, cols, templateStyles);
+        shiftFlowchartBlockIfNeeded(
+            worksheet,
+            estimatedLastDetailRow,
+            flowchartTemplateLabelRow,
+            cols,
+            templateStyles,
+        );
 
-        const flowchartLabelRow = getFlowchartLabelRow(estimatedLastDetailRow, flowchartTemplateLabelRow);
-        // Limpia y des-mergea el área del detalle
+        const flowchartLabelRow = getFlowchartLabelRow(
+            estimatedLastDetailRow,
+            flowchartTemplateLabelRow,
+        );
+
+        // Limpiar valores / merges en TODO el área hasta antes del flujograma
         resetArea(worksheet, detailStartRow, flowchartLabelRow - 1, cols.categoria, cols.gruposUsuario);
-        // Aplica estilos base al área (incluye filas insertadas)
+
+        // Aplicar estilo base al área (incluye filas insertadas)
         applyBaseDetailStyling(
             worksheet,
             detailStartRow,
             flowchartLabelRow - 1,
             cols.categoria,
             cols.gruposUsuario,
-            templateStyles
+            templateStyles,
         );
     }
 
     // 3) Tabla de detalle (con jerarquía + merges + separadores)
-    const lastDetailRow = fillDetailTableHierarchical(worksheet, document, detailStartRow, cols, templateStyles);
+    const lastDetailRow = fillDetailTableHierarchical(
+        worksheet,
+        document,
+        detailStartRow,
+        cols,
+        templateStyles,
+    );
 
     // Marco externo (medium) solo al rango usado
     if (lastDetailRow >= detailStartRow) {
-        applyOuterBorder(worksheet, detailStartRow, lastDetailRow, cols.categoria, cols.gruposUsuario, templateStyles);
+        applyOuterBorder(
+            worksheet,
+            detailStartRow,
+            lastDetailRow,
+            cols.categoria,
+            cols.gruposUsuario,
+            templateStyles,
+        );
     }
 
     // 4) Flujograma (si existe)
@@ -224,7 +260,7 @@ export async function exportToExcel(
             document.flowchart,
             lastDetailRow,
             flowchartTemplateLabelRow,
-            flowchartColStart
+            flowchartColStart,
         );
     }
 
@@ -260,12 +296,11 @@ function fillGeneralData(worksheet: ExcelJS.Worksheet, document: DocumentDraft):
 
 /**
  * Estima última fila del detalle según estructura.
- * Reglas:
- * - Cada ítem ocupa N filas = max(2, camposAdicionales.length).
- * - 1 fila separador entre subcategorías
- * - 2 filas separador entre categorías
  */
-function estimateLastDetailRow(categorias: DocumentDraft['detalle'], detailStartRow: number): number {
+function estimateLastDetailRow(
+    categorias: DocumentDraft['detalle'],
+    detailStartRow: number,
+): number {
     if (!categorias || categorias.length === 0) return detailStartRow - 1;
 
     let rows = 0;
@@ -287,13 +322,16 @@ function estimateLastDetailRow(categorias: DocumentDraft['detalle'], detailStart
     return detailStartRow + rows - 1;
 }
 
-function getFlowchartLabelRow(lastDetailRow: number, flowchartTemplateLabelRow: number): number {
+function getFlowchartLabelRow(
+    lastDetailRow: number,
+    flowchartTemplateLabelRow: number,
+): number {
     const desired = lastDetailRow + FLOWCHART_MARGIN_ROWS;
     return Math.max(flowchartTemplateLabelRow, desired);
 }
 
 /**
- * Empuja el bloque del flujograma insertando filas, manteniendo estilos “aceptables”
+ * Empuja el bloque del flujograma insertando filas.
  */
 function shiftFlowchartBlockIfNeeded(
     worksheet: ExcelJS.Worksheet,
@@ -309,23 +347,20 @@ function shiftFlowchartBlockIfNeeded(
         const emptyRows = Array.from({ length: delta }, () => []);
         worksheet.spliceRows(flowchartTemplateLabelRow, 0, ...emptyRows);
 
-        // Aplicar estilo del “separador” a las filas insertadas para que no queden default-feas
-        for (let r = flowchartTemplateLabelRow; r < flowchartTemplateLabelRow + delta; r++) {
-            renderSeparatorRow(worksheet, r, cols.categoria, cols.gruposUsuario, templateStyles);
-        }
+        // IMPORTANTE: aquí ya NO llamamos a renderSeparatorRow.
+        // Las filas insertadas las va a “limpiar” resetArea y quedarán con estilo base.
     }
 }
 
 /**
- * Limpia valores y elimina merges dentro de un rango (evita conflictos con merges del template).
- * Importante: NO toca el header (solo área detalle).
+ * Limpia valores y elimina merges dentro de un rango.
  */
 function resetArea(
     worksheet: ExcelJS.Worksheet,
     startRow: number,
     endRow: number,
     startColLetter: string,
-    endColLetter: string
+    endColLetter: string,
 ): void {
     if (endRow < startRow) return;
 
@@ -350,7 +385,6 @@ function resetArea(
 
 /**
  * Aplica estilo base a todo el bloque de detalle (wrap, bordes, etc).
- * Copia el estilo desde el template (TemplateStyles.baseCell).
  */
 function applyBaseDetailStyling(
     worksheet: ExcelJS.Worksheet,
@@ -358,7 +392,7 @@ function applyBaseDetailStyling(
     endRow: number,
     startColLetter: string,
     endColLetter: string,
-    templateStyles: TemplateStyles
+    templateStyles: TemplateStyles,
 ): void {
     if (endRow < startRow) return;
 
@@ -367,14 +401,15 @@ function applyBaseDetailStyling(
 
     for (let r = startRow; r <= endRow; r++) {
         const row = worksheet.getRow(r);
-        // Si el template trae altura, respetala; si no, deja default
         if (!row.height) row.height = 22.5;
 
         for (let c = startCol; c <= endCol; c++) {
             const cell = worksheet.getCell(r, c);
             cell.style = deepClone(templateStyles.baseCell);
-
-            // Forzamos wrap + vertical middle porque es parte del requerimiento.
+            cell.font = {
+                ...(cell.font || {}),
+                ...DETAIL_FONT,
+            };
             cell.alignment = {
                 ...(cell.alignment || {}),
                 wrapText: true,
@@ -393,7 +428,7 @@ function applyOuterBorder(
     endRow: number,
     startColLetter: string,
     endColLetter: string,
-    templateStyles: TemplateStyles
+    templateStyles: TemplateStyles,
 ): void {
     const startCol = columnLetterToIndex(startColLetter);
     const endCol = columnLetterToIndex(endColLetter);
@@ -415,27 +450,23 @@ function applyOuterBorder(
 
 /**
  * Separador estilizado (merge B:N o el rango que toque).
- * Se usa entre subcategorías/categorías y también para las filas insertadas al empujar flujograma.
  */
 function renderSeparatorRow(
     worksheet: ExcelJS.Worksheet,
     rowNumber: number,
     startColLetter: string,
     endColLetter: string,
-    templateStyles: TemplateStyles
+    templateStyles: TemplateStyles,
 ): void {
     const startCol = columnLetterToIndex(startColLetter);
     const endCol = columnLetterToIndex(endColLetter);
 
-    // limpiar valores
     for (let c = startCol; c <= endCol; c++) {
         worksheet.getCell(rowNumber, c).value = null;
     }
 
-    // merge completo
     mergeCells(worksheet, `${startColLetter}${rowNumber}:${endColLetter}${rowNumber}`);
 
-    // aplicar estilo base tipo "separador"
     for (let c = startCol; c <= endCol; c++) {
         const cell = worksheet.getCell(rowNumber, c);
         cell.style = deepClone(templateStyles.separatorRowCell || templateStyles.baseCell);
@@ -443,26 +474,19 @@ function renderSeparatorRow(
 }
 
 type BorderWeight = 'thin' | 'medium';
-function borderSide(style: BorderWeight, argb: string): ExcelJS.BorderStyle {
+function borderSide(style: BorderWeight, argb: string): any {
     return { style, color: { argb } };
 }
 
 /**
  * Rellena tabla de detalle con estructura jerárquica y merges.
- *
- * Merges:
- * - Categoría: merge por categoría completa (incluye separadores entre subcats).
- * - Subcategoría: merge por subcategoría (no incluye la fila separador).
- * - Aprobadores (K): merge por ítem con herencia de subcategoría (v2.3).
- * - Ítem: merge por ítem (D + G + I + J + L).
- * - Grupo/Asistencia/Usuario: 2 niveles (titulo en fila 1; contenido en filas 2+ merge).
  */
 function fillDetailTableHierarchical(
     worksheet: ExcelJS.Worksheet,
     document: DocumentDraft,
     detailStartRow: number,
     cols: DetailCols,
-    templateStyles: TemplateStyles
+    templateStyles: TemplateStyles,
 ): number {
     const categorias = document.detalle;
     let currentRow = detailStartRow;
@@ -484,60 +508,107 @@ function fillDetailTableHierarchical(
                 const numFilasItem = Math.max(2, numCampos);
                 const itemEndRow = itemStartRow + numFilasItem - 1;
 
-                // Asegurar estilo base para estas filas
-                applyBaseDetailStyling(worksheet, itemStartRow, itemEndRow, cols.categoria, cols.gruposUsuario, templateStyles);
+                applyBaseDetailStyling(
+                    worksheet,
+                    itemStartRow,
+                    itemEndRow,
+                    cols.categoria,
+                    cols.gruposUsuario,
+                    templateStyles,
+                );
 
-                // === ARTÍCULO (D): merge por ítem ===
+                // Ítem + SLA + Tipo info + Buzón + Formulario
                 mergeCells(worksheet, `${cols.item}${itemStartRow}:${cols.item}${itemEndRow}`);
                 setCellValue(worksheet, `${cols.item}${itemStartRow}`, item.itemNombre);
 
-                // === SLA / TIPO INFO / BUZÓN / FORM ZOHO: merge por ítem ===
                 mergeCells(worksheet, `${cols.sla}${itemStartRow}:${cols.sla}${itemEndRow}`);
-                mergeCells(worksheet, `${cols.tipoInformacion}${itemStartRow}:${cols.tipoInformacion}${itemEndRow}`);
+                mergeCells(
+                    worksheet,
+                    `${cols.tipoInformacion}${itemStartRow}:${cols.tipoInformacion}${itemEndRow}`,
+                );
                 mergeCells(worksheet, `${cols.buzon}${itemStartRow}:${cols.buzon}${itemEndRow}`);
-                mergeCells(worksheet, `${cols.formularioZoho}${itemStartRow}:${cols.formularioZoho}${itemEndRow}`);
+                mergeCells(
+                    worksheet,
+                    `${cols.formularioZoho}${itemStartRow}:${cols.formularioZoho}${itemEndRow}`,
+                );
 
                 setCellValue(worksheet, `${cols.sla}${itemStartRow}`, item.sla);
                 setCellValue(worksheet, `${cols.tipoInformacion}${itemStartRow}`, item.tipoInformacion);
                 setCellValue(worksheet, `${cols.buzon}${itemStartRow}`, item.buzon);
                 setCellValue(worksheet, `${cols.formularioZoho}${itemStartRow}`, item.formularioZoho);
 
-                // === APROBADORES (K): merge por ítem con herencia de subcategoría ===
-                // Regla v2.3: si el ítem tiene aprobadores propios, los usa; si no, hereda de subcategoría
+                // Aprobadores: ítem o herencia de subcat
                 const aprobadoresEfectivos = item.aprobadores || subcategoria.aprobadores || '';
-                mergeCells(worksheet, `${cols.aprobadores}${itemStartRow}:${cols.aprobadores}${itemEndRow}`);
+                mergeCells(
+                    worksheet,
+                    `${cols.aprobadores}${itemStartRow}:${cols.aprobadores}${itemEndRow}`,
+                );
                 setCellValue(worksheet, `${cols.aprobadores}${itemStartRow}`, aprobadoresEfectivos);
 
-                // === GRUPO / ASISTENCIA / USUARIO: estructura 2 niveles ===
+                // Grupo / asistencia / usuario
                 setCellValue(worksheet, `${cols.grupo}${itemStartRow}`, item.grupo?.titulo);
-                setCellValue(worksheet, `${cols.gruposAsistencia}${itemStartRow}`, item.gruposAsistencia?.titulo);
-                setCellValue(worksheet, `${cols.gruposUsuario}${itemStartRow}`, item.gruposUsuario?.titulo);
+                setCellValue(
+                    worksheet,
+                    `${cols.gruposAsistencia}${itemStartRow}`,
+                    item.gruposAsistencia?.titulo,
+                );
+                setCellValue(
+                    worksheet,
+                    `${cols.gruposUsuario}${itemStartRow}`,
+                    item.gruposUsuario?.titulo,
+                );
 
                 if (numFilasItem >= 2) {
                     const contentRow = itemStartRow + 1;
 
                     setCellValue(worksheet, `${cols.grupo}${contentRow}`, item.grupo?.contenido);
-                    setCellValue(worksheet, `${cols.gruposAsistencia}${contentRow}`, item.gruposAsistencia?.contenido);
-                    setCellValue(worksheet, `${cols.gruposUsuario}${contentRow}`, item.gruposUsuario?.contenido);
+                    setCellValue(
+                        worksheet,
+                        `${cols.gruposAsistencia}${contentRow}`,
+                        item.gruposAsistencia?.contenido,
+                    );
+                    setCellValue(
+                        worksheet,
+                        `${cols.gruposUsuario}${contentRow}`,
+                        item.gruposUsuario?.contenido,
+                    );
 
-                    // merge contenido si hay más de 1 fila de contenido
-                    mergeIfMultipleRows(worksheet, `${cols.grupo}${contentRow}:${cols.grupo}${itemEndRow}`);
-                    mergeIfMultipleRows(worksheet, `${cols.gruposAsistencia}${contentRow}:${cols.gruposAsistencia}${itemEndRow}`);
-                    mergeIfMultipleRows(worksheet, `${cols.gruposUsuario}${contentRow}:${cols.gruposUsuario}${itemEndRow}`);
+                    mergeIfMultipleRows(
+                        worksheet,
+                        `${cols.grupo}${contentRow}:${cols.grupo}${itemEndRow}`,
+                    );
+                    mergeIfMultipleRows(
+                        worksheet,
+                        `${cols.gruposAsistencia}${contentRow}:${cols.gruposAsistencia}${itemEndRow}`,
+                    );
+                    mergeIfMultipleRows(
+                        worksheet,
+                        `${cols.gruposUsuario}${contentRow}:${cols.gruposUsuario}${itemEndRow}`,
+                    );
                 }
 
-                // === CAMPOS ADICIONALES (E) + TIPO (F): 1 fila por campo (sin offset raro) ===
+                // Campos adicionales
                 for (let i = 0; i < numFilasItem; i++) {
                     const row = itemStartRow + i;
                     const campo = item.camposAdicionales?.[i];
 
                     setCellValue(worksheet, `${cols.camposAdicionales}${row}`, campo?.titulo || '');
-                    setCellValue(worksheet, `${cols.tipoCampos}${row}`, campo?.tipo || (i === 0 ? 'Texto' : ''));
+                    setCellValue(
+                        worksheet,
+                        `${cols.tipoCampos}${row}`,
+                        campo?.tipo || (i === 0 ? 'Texto' : ''),
+                    );
                 }
 
-                // Línea divisoria entre ítems (sin insertar filas)
+                // Línea divisoria entre ítems
                 if (itemIndex > 0) {
-                    renderItemDividerLine(worksheet, itemStartRow, cols.item, cols.gruposUsuario, templateStyles);
+                    renderItemDividerLine(
+                        worksheet,
+                        itemStartRow,
+                        cols.item,
+                        cols.gruposUsuario,
+                        templateStyles,
+                    );
                 }
 
                 currentRow += numFilasItem;
@@ -545,14 +616,14 @@ function fillDetailTableHierarchical(
 
             const subcategoriaEndRow = currentRow - 1;
 
-            // Merge SUBCATEGORÍA (C) por subcategoría completa
-            mergeCells(worksheet, `${cols.subcategoria}${subcategoriaStartRow}:${cols.subcategoria}${subcategoriaEndRow}`);
+            mergeCells(
+                worksheet,
+                `${cols.subcategoria}${subcategoriaStartRow}:${cols.subcategoria}${subcategoriaEndRow}`,
+            );
             setCellValue(worksheet, `${cols.subcategoria}${subcategoriaStartRow}`, subcategoria.nombre);
 
-            // Estilos visuales subcategoria (master cell)
             styleHeaderCells(worksheet, subcategoriaStartRow, cols, templateStyles);
 
-            // 1 fila separador entre subcategorías
             if (subcatIndex < categoria.subcategorias.length - 1) {
                 renderSeparatorRow(worksheet, currentRow, cols.categoria, cols.gruposUsuario, templateStyles);
                 currentRow += 1;
@@ -561,14 +632,14 @@ function fillDetailTableHierarchical(
 
         const categoriaEndRow = currentRow - 1;
 
-        // Merge CATEGORÍA (B) por categoría completa (incluye separadores entre subcats)
-        mergeCells(worksheet, `${cols.categoria}${categoriaStartRow}:${cols.categoria}${categoriaEndRow}`);
+        mergeCells(
+            worksheet,
+            `${cols.categoria}${categoriaStartRow}:${cols.categoria}${categoriaEndRow}`,
+        );
         setCellValue(worksheet, `${cols.categoria}${categoriaStartRow}`, categoria.nombre);
 
-        // Estilos visuales categoría (master cell)
         styleHeaderCells(worksheet, categoriaStartRow, cols, templateStyles);
 
-        // 2 filas separador entre categorías
         if (catIndex < categorias.length - 1) {
             renderSeparatorRow(worksheet, currentRow, cols.categoria, cols.gruposUsuario, templateStyles);
             currentRow += 1;
@@ -582,24 +653,23 @@ function fillDetailTableHierarchical(
 }
 
 /**
- * Aplica estilo “visual” a la celda master de categoría y subcategoría (centrado + bold).
- * No pelea contra el estilo base del template; solo refuerza.
+ * Estilo visual para celdas master de categoría/subcategoría.
  */
 function styleHeaderCells(
     worksheet: ExcelJS.Worksheet,
     rowNumber: number,
     cols: DetailCols,
-    templateStyles: TemplateStyles
+    templateStyles: TemplateStyles,
 ): void {
     const cat = worksheet.getCell(`${cols.categoria}${rowNumber}`);
     cat.style = deepClone(templateStyles.categoriaCell || templateStyles.baseCell);
     cat.alignment = { ...(cat.alignment || {}), horizontal: 'center', vertical: 'middle', wrapText: true };
-    cat.font = { ...(cat.font || {}), bold: true };
+    cat.font = { ...(cat.font || {}), ...HEADER_FONT };
 
     const sub = worksheet.getCell(`${cols.subcategoria}${rowNumber}`);
     sub.style = deepClone(templateStyles.subcategoriaCell || templateStyles.baseCell);
     sub.alignment = { ...(sub.alignment || {}), horizontal: 'center', vertical: 'middle', wrapText: true };
-    sub.font = { ...(sub.font || {}), bold: true };
+    sub.font = { ...(sub.font || {}), ...HEADER_FONT };
 }
 
 /**
@@ -610,7 +680,7 @@ function renderItemDividerLine(
     rowNumber: number,
     startColLetter: string,
     endColLetter: string,
-    templateStyles: TemplateStyles
+    templateStyles: TemplateStyles,
 ): void {
     const startCol = columnLetterToIndex(startColLetter);
     const endCol = columnLetterToIndex(endColLetter);
@@ -625,7 +695,7 @@ function renderItemDividerLine(
 }
 
 /**
- * Inserta flujograma debajo del detalle y dentro del bloque del template (B50:G...)
+ * Inserta flujograma debajo del detalle.
  */
 async function insertFlowchart(
     workbook: ExcelJS.Workbook,
@@ -633,7 +703,7 @@ async function insertFlowchart(
     flowchart: NonNullable<DocumentDraft['flowchart']>,
     lastDetailRow: number,
     flowchartTemplateLabelRow: number,
-    flowchartColStart: number
+    flowchartColStart: number,
 ): Promise<void> {
     const base64Data = flowchart.base64.split(',')[1];
     if (!base64Data) return;
@@ -653,7 +723,7 @@ async function insertFlowchart(
     });
 }
 
-/** Helpers */
+/** Helpers genéricos */
 function setCellValue(worksheet: ExcelJS.Worksheet, cellAddress: string, value: any): void {
     const cell = worksheet.getCell(cellAddress);
     cell.value = value === undefined || value === null ? '' : value;
@@ -663,15 +733,17 @@ function mergeCells(worksheet: ExcelJS.Worksheet, range: string): void {
     try {
         worksheet.mergeCells(range);
     } catch {
-        // ignore: ya existe o rango inválido
+        // ignore
     }
 }
 
 function mergeIfMultipleRows(worksheet: ExcelJS.Worksheet, range: string): void {
     const [start, end] = range.split(':');
     if (!start || !end) return;
+
     const startRow = parseInt(start.replace(/^[A-Z]+/i, ''), 10);
     const endRow = parseInt(end.replace(/^[A-Z]+/i, ''), 10);
+
     if (Number.isFinite(startRow) && Number.isFinite(endRow) && endRow > startRow) {
         mergeCells(worksheet, range);
     }
