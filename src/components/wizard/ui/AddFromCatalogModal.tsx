@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -27,16 +27,16 @@ export default function AddFromCatalogModal({ isOpen, onClose, onSave }: AddFrom
     const subcategorias = selectedCategoria ? getSubcategorias(selectedCategoria) : [];
     const items = selectedCategoria && selectedSubcategoria ? getItems(selectedCategoria, selectedSubcategoria) : [];
 
-    // Reset subcategoría e ítem cuando cambie la categoría
-    useEffect(() => {
+    const handleCategoriaChange = (value: string) => {
+        setSelectedCategoria(value);
         setSelectedSubcategoria('');
         setSelectedItem('');
-    }, [selectedCategoria]);
+    };
 
-    // Reset ítem cuando cambie la subcategoría
-    useEffect(() => {
+    const handleSubcategoriaChange = (value: string) => {
+        setSelectedSubcategoria(value);
         setSelectedItem('');
-    }, [selectedSubcategoria]);
+    };
 
     const handleSave = () => {
         if (selectedCategoria && selectedSubcategoria && selectedItem) {
@@ -72,7 +72,7 @@ export default function AddFromCatalogModal({ isOpen, onClose, onSave }: AddFrom
                         <Label htmlFor="categoria">Categoría</Label>
                         <SelectCreatable
                             value={selectedCategoria}
-                            onValueChange={setSelectedCategoria}
+                            onValueChange={handleCategoriaChange}
                             options={categoriasOptions}
                             placeholder="Selecciona o escribe una categoría"
                         />
@@ -83,7 +83,7 @@ export default function AddFromCatalogModal({ isOpen, onClose, onSave }: AddFrom
                         <Label htmlFor="subcategoria">Subcategoría</Label>
                         <SelectCreatable
                             value={selectedSubcategoria}
-                            onValueChange={setSelectedSubcategoria}
+                            onValueChange={handleSubcategoriaChange}
                             options={subcategoriasOptions}
                             placeholder="Selecciona o escribe una subcategoría"
                             disabled={!selectedCategoria}

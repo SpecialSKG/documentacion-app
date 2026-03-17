@@ -1,8 +1,15 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useDocumentStore } from '@/stores/docStore';
-import { Item, GrupoEspecial, CampoAdicional, createEmptyItem, createEmptyCampoAdicional, FIELD_TYPES } from '@/lib/document';
+import {
+    Item,
+    GrupoEspecial,
+    CampoAdicional,
+    Categoria,
+    createEmptyItem,
+    createEmptyCampoAdicional,
+} from '@/lib/document';
 import { useDataOptions } from '@/hooks/useDataOptions';
 import { useCatalogo } from '@/hooks/useCatalogo';
 import {
@@ -31,16 +38,76 @@ interface ItemModalProps {
     subcategoriaId?: string;
 }
 
+interface ItemModalInitialState {
+    localItem: Item;
+    selectedCategoria: string;
+    selectedSubcategoria: string;
+    camposAdicionales: CampoAdicional[];
+    useSubcatAprobadores: boolean;
+}
+
+function getInitialState(
+    item: Item | null,
+    categoriaId: string | undefined,
+    subcategoriaId: string | undefined,
+    detalle: Categoria[]
+): ItemModalInitialState {
+    if (item) {
+        let selectedCategoria = '';
+        let selectedSubcategoria = '';
+
+        for (const cat of detalle) {
+            for (const subcat of cat.subcategorias) {
+                if (subcat.items.some((i) => i.id === item.id)) {
+                    selectedCategoria = cat.nombre;
+                    selectedSubcategoria = subcat.nombre;
+                    break;
+                }
+            }
+            if (selectedCategoria && selectedSubcategoria) break;
+        }
+
+        return {
+            localItem: item,
+            selectedCategoria,
+            selectedSubcategoria,
+            camposAdicionales: item.camposAdicionales || [],
+            useSubcatAprobadores: !item.aprobadores || item.aprobadores === '',
+        };
+    }
+
+    const newItem = createEmptyItem();
+    let selectedCategoria = '';
+    let selectedSubcategoria = '';
+
+    if (categoriaId && subcategoriaId) {
+        const categoria = detalle.find((cat) => cat.id === categoriaId);
+        const subcategoria = categoria?.subcategorias.find((sub) => sub.id === subcategoriaId);
+        selectedCategoria = categoria?.nombre || '';
+        selectedSubcategoria = subcategoria?.nombre || '';
+    }
+
+    return {
+        localItem: newItem,
+        selectedCategoria,
+        selectedSubcategoria,
+        camposAdicionales: [],
+        useSubcatAprobadores: true,
+    };
+}
+
 export default function ItemModal({ item, isOpen, onClose, onSave, categoriaId, subcategoriaId }: ItemModalProps) {
     const { document } = useDocumentStore();
     const { slaOptions, tipoCamposOptions, tipoInformacionOptions } = useDataOptions();
     const { categorias, getSubcategorias, getItems } = useCatalogo();
+    const initialState = getInitialState(item, categoriaId, subcategoriaId, document.detalle);
 
-    const [localItem, setLocalItem] = useState<Item>(item || createEmptyItem());
-    const [selectedCategoria, setSelectedCategoria] = useState('');
-    const [selectedSubcategoria, setSelectedSubcategoria] = useState('');
-    const [camposAdicionales, setCamposAdicionales] = useState<CampoAdicional[]>([]);
-    const [useSubcatAprobadores, setUseSubcatAprobadores] = useState(true);
+    const [localItem, setLocalItem] = useState<Item>(initialState.localItem);
+    const [selectedCategoria, setSelectedCategoria] = useState(initialState.selectedCategoria);
+    const [selectedSubcategoria, setSelectedSubcategoria] = useState(initialState.selectedSubcategoria);
+    const [camposAdicionales, setCamposAdicionales] = useState<CampoAdicional[]>(initialState.camposAdicionales);
+    const [useSubcatAprobadores, setUseSubcatAprobadores] = useState(initialState.useSubcatAprobadores);
+    const isCreateWithContext = !item && !!categoriaId && !!subcategoriaId;
 
     // Obtener aprobadores de subcategoría para el contexto actual
     const subcatAprobadores = document.detalle
@@ -48,40 +115,10 @@ export default function ItemModal({ item, isOpen, onClose, onSave, categoriaId, 
         ?.subcategorias.find(sub => sub.id === subcategoriaId)
         ?.aprobadores || '';
 
-    // Inicializar estado cuando cambian props
-    useEffect(() => {
-        if (item) {
-            setLocalItem(item);
-            setCamposAdicionales(item.camposAdicionales || []);
-
-            // NUEVO: Precargar selects de catálogo en modo edición
-            // Buscar categoria y subcategoria del ítem en el documento actual
-            for (const cat of document.detalle) {
-                for (const subcat of cat.subcategorias) {
-                    if (subcat.items.some(i => i.id === item.id)) {
-                        setSelectedCategoria(cat.nombre);
-                        setSelectedSubcategoria(subcat.nombre);
-                        break;
-                    }
-                }
-            }
-
-            // Determinar si usa aprobadores de subcategoría o propios
-            setUseSubcatAprobadores(!item.aprobadores || item.aprobadores === '');
-        } else {
-            const newItem = createEmptyItem();
-            setLocalItem(newItem);
-            setCamposAdicionales([]);
-            setSelectedCategoria('');
-            setSelectedSubcategoria('');
-            setUseSubcatAprobadores(true);
-        }
-    }, [item, document.detalle]);
-
     const subcategorias = getSubcategorias(selectedCategoria);
     const items = getItems(selectedCategoria, selectedSubcategoria);
 
-    const handleChange = (field: keyof Item, value: any) => {
+    const handleChange = <K extends keyof Item>(field: K, value: Item[K]) => {
         setLocalItem((prev) => ({ ...prev, [field]: value }));
     };
 
@@ -100,7 +137,11 @@ export default function ItemModal({ item, isOpen, onClose, onSave, categoriaId, 
         setCamposAdicionales([...camposAdicionales, createEmptyCampoAdicional()]);
     };
 
-    const handleUpdateCampo = (index: number, field: keyof CampoAdicional, value: any) => {
+    const handleUpdateCampo = <K extends keyof CampoAdicional>(
+        index: number,
+        field: K,
+        value: CampoAdicional[K]
+    ) => {
         const updated = [...camposAdicionales];
         updated[index] = { ...updated[index], [field]: value };
         setCamposAdicionales(updated);
@@ -111,9 +152,10 @@ export default function ItemModal({ item, isOpen, onClose, onSave, categoriaId, 
     };
 
     // Manejar checkbox de aprobadores
-    const handleAprobadoresCheckbox = (checked: boolean) => {
-        setUseSubcatAprobadores(checked);
-        if (checked) {
+    const handleAprobadoresCheckbox = (checked: boolean | 'indeterminate') => {
+        const isChecked = checked === true;
+        setUseSubcatAprobadores(isChecked);
+        if (isChecked) {
             // Si heredamos, limpiamos el campo de aprobadores del ítem
             handleChange('aprobadores', '');
         }
@@ -160,11 +202,13 @@ export default function ItemModal({ item, isOpen, onClose, onSave, categoriaId, 
                                     onValueChange={setSelectedCategoria}
                                     options={categoriasOptions}
                                     placeholder="Selecciona o escribe una categoría"
-                                    disabled={!!item}
+                                    disabled={!!item || isCreateWithContext}
                                 />
-                                {item && (
+                                {(item || isCreateWithContext) && (
                                     <p className="text-xs text-muted-foreground mt-1">
-                                        No puedes cambiar la categoría al editar un ítem
+                                        {item
+                                            ? 'No puedes cambiar la categoría al editar un ítem'
+                                            : 'Categoría prefijada por el contexto de subcategoría'}
                                     </p>
                                 )}
                             </div>
@@ -177,11 +221,13 @@ export default function ItemModal({ item, isOpen, onClose, onSave, categoriaId, 
                                     onValueChange={setSelectedSubcategoria}
                                     options={subcategoriasOptions}
                                     placeholder="Selecciona o escribe una subcategoría"
-                                    disabled={!selectedCategoria || !!item}
+                                    disabled={!selectedCategoria || !!item || isCreateWithContext}
                                 />
-                                {item && (
+                                {(item || isCreateWithContext) && (
                                     <p className="text-xs text-muted-foreground mt-1">
-                                        No puedes cambiar la subcategoría al editar un ítem
+                                        {item
+                                            ? 'No puedes cambiar la subcategoría al editar un ítem'
+                                            : 'Subcategoría prefijada por el contexto de subcategoría'}
                                     </p>
                                 )}
                             </div>
@@ -360,7 +406,7 @@ export default function ItemModal({ item, isOpen, onClose, onSave, categoriaId, 
                         <CardContent className="space-y-3">
                             {camposAdicionales.length === 0 ? (
                                 <p className="text-sm text-gray-500 text-center py-4">
-                                    No hay campos adicionales. Haz clic en "Agregar campo" para crear uno.
+                                    No hay campos adicionales. Haz clic en &quot;Agregar campo&quot; para crear uno.
                                 </p>
                             ) : (
                                 camposAdicionales.map((campo, index) => (
@@ -378,7 +424,7 @@ export default function ItemModal({ item, isOpen, onClose, onSave, categoriaId, 
                                                 <Label className="text-xs text-gray-600">Tipo de campo adicional</Label>
                                                 <SelectCreatable
                                                     value={campo.tipo}
-                                                    onValueChange={(value) => handleUpdateCampo(index, 'tipo', value as any)}
+                                                    onValueChange={(value) => handleUpdateCampo(index, 'tipo', value as CampoAdicional['tipo'])}
                                                     options={tipoCamposOptions}
                                                     placeholder="Selecciona tipo (línea única, multilínea, lista, etc.)"
                                                 />

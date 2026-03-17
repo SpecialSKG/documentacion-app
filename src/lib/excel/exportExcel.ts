@@ -9,7 +9,13 @@
  */
 
 import ExcelJS from 'exceljs';
-import { DocumentDraft } from '@/lib/document';
+import {
+    DocumentDraft,
+    Categoria,
+    Subcategoria,
+    Item,
+    CampoAdicional,
+} from '@/lib/document';
 import {
     SHEET_NAME,
     HEADER_CELLS,
@@ -90,6 +96,16 @@ export async function exportToExcel(
             DETAIL_COLS.categoria,
             DETAIL_COLS.gruposUsuario
         );
+
+        // Asegura que el espacio entre detalle y flujograma quede neutro,
+        // evitando filas residuales con estilo de tabla.
+        clearPostDetailArea(
+            worksheet,
+            lastDetailRow + 1,
+            flowchartLabelRow - 1,
+            DETAIL_COLS.categoria,
+            DETAIL_COLS.gruposUsuario
+        );
     }
 
     // 5) Flujograma (si existe)
@@ -148,20 +164,20 @@ function estimateLastDetailRow(detalle: DocumentDraft['detalle']): number {
 
     let rows = 0;
 
-    (detalle as any[]).forEach((categoria, catIndex) => {
-        (categoria.subcategorias as any[]).forEach((subcat: any, subIndex: number) => {
-            (subcat.items as any[]).forEach((item: any) => {
-                const numCampos = (item.camposAdicionales?.length as number) || 0;
+    detalle.forEach((categoria: Categoria, catIndex: number) => {
+        categoria.subcategorias.forEach((subcat: Subcategoria, subIndex: number) => {
+            subcat.items.forEach((item: Item) => {
+                const numCampos = item.camposAdicionales?.length || 0;
                 const numFilasItem = Math.max(2, numCampos || 1);
                 rows += numFilasItem;
             });
 
-            if (subIndex < (categoria.subcategorias as any[]).length - 1) {
+            if (subIndex < categoria.subcategorias.length - 1) {
                 rows += 1; // separador entre subcategorías
             }
         });
 
-        if (catIndex < (detalle as any[]).length - 1) {
+        if (catIndex < detalle.length - 1) {
             rows += 2; // separador entre categorías
         }
     });
@@ -349,23 +365,23 @@ function fillDetailTableHierarchical(
     worksheet: ExcelJS.Worksheet,
     document: DocumentDraft
 ): number {
-    const categorias = (document.detalle || []) as any[];
+    const categorias = document.detalle || [];
     let currentRow = DETAIL_START_ROW;
 
     if (!categorias || categorias.length === 0) {
         return DETAIL_START_ROW - 1;
     }
 
-    categorias.forEach((categoria, catIndex) => {
+    categorias.forEach((categoria: Categoria, catIndex: number) => {
         const categoriaStartRow = currentRow;
 
-        (categoria.subcategorias as any[]).forEach((subcat, subIndex) => {
+        categoria.subcategorias.forEach((subcat: Subcategoria, subIndex: number) => {
             const subcatStartRow = currentRow;
 
-            (subcat.items as any[]).forEach((item: any) => {
+            subcat.items.forEach((item: Item) => {
                 const itemStartRow = currentRow;
 
-                const campos: any[] = item.camposAdicionales || [];
+                const campos: CampoAdicional[] = item.camposAdicionales || [];
                 const numCampos = campos.length;
                 const numFilasItem = Math.max(2, numCampos || 1);
                 const itemEndRow = itemStartRow + numFilasItem - 1;
@@ -393,7 +409,7 @@ function fillDetailTableHierarchical(
                 // === APROBADORES (hereda de subcategoría si el ítem no tiene) ===
                 const aprobadoresEfectivos =
                     (item.aprobadores && String(item.aprobadores).trim()) ||
-                    (subcat.aprobadores as string) ||
+                    subcat.aprobadores ||
                     '';
                 mergeCells(
                     worksheet,
@@ -480,7 +496,7 @@ function fillDetailTableHierarchical(
             setCellValue(worksheet, `${DETAIL_COLS.subcategoria}${subcatStartRow}`, subcat.nombre);
 
             // Separador entre subcategorías
-            if (subIndex < (categoria.subcategorias as any[]).length - 1) {
+            if (subIndex < categoria.subcategorias.length - 1) {
                 renderSeparatorRow(
                     worksheet,
                     currentRow,
@@ -577,9 +593,38 @@ async function insertFlowchart(
 
 /* ====================== HELPERS GENERALES ====================== */
 
-function setCellValue(worksheet: ExcelJS.Worksheet, cellAddress: string, value: any): void {
+function setCellValue(
+    worksheet: ExcelJS.Worksheet,
+    cellAddress: string,
+    value: ExcelJS.CellValue | null | undefined
+): void {
     const cell = worksheet.getCell(cellAddress);
     cell.value = value === undefined || value === null ? '' : value;
+}
+
+/**
+ * Limpia el área entre el final del detalle y el bloque de flujograma
+ * para que no se vea como parte de la tabla.
+ */
+function clearPostDetailArea(
+    worksheet: ExcelJS.Worksheet,
+    startRow: number,
+    endRow: number,
+    startColLetter: string,
+    endColLetter: string
+): void {
+    if (endRow < startRow) return;
+
+    const startCol = columnLetterToIndex(startColLetter);
+    const endCol = columnLetterToIndex(endColLetter);
+
+    for (let r = startRow; r <= endRow; r++) {
+        for (let c = startCol; c <= endCol; c++) {
+            const cell = worksheet.getCell(r, c);
+            cell.value = null;
+            cell.style = {};
+        }
+    }
 }
 
 function mergeCells(worksheet: ExcelJS.Worksheet, range: string): void {

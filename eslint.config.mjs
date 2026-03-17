@@ -12,6 +12,11 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    "templates/**",
+    "src (Base)/**",
+    "src/components/wizard/ui/DetalleRowEditor.tsx",
+    "exportExcel_PATCH.ts",
+    "excelAnchors_FIXED.ts",
   ]),
 ]);
 

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { FileText, Settings, AlertCircle } from 'lucide-react';
 import { useDocumentStore } from '@/stores/docStore';
 import { toast } from 'sonner';
@@ -11,27 +12,27 @@ import { toast } from 'sonner';
 export default function DashboardPage() {
     const router = useRouter();
     const { load, clear, document } = useDocumentStore();
-    const [hasDraft, setHasDraft] = useState(false);
+    const [isClearOpen, setIsClearOpen] = useState(false);
 
     useEffect(() => {
         // Cargar documento guardado al iniciar
         load();
     }, [load]);
 
-    useEffect(() => {
-        // Actualizar hasDraft después del montaje para evitar hydration mismatch
-        setHasDraft(document.updatedAt !== document.createdAt || document.detalle.length > 0);
-    }, [document]);
+    const hasDraft = document.updatedAt !== document.createdAt || document.detalle.length > 0;
 
     const handleNewDocument = () => {
         router.push('/nuevo?step=1');
     };
 
-    const handleClearDocument = async () => {
-        if (confirm('¿Estás seguro de que deseas limpiar el documento actual? Esta acción no se puede deshacer.')) {
-            await clear();
-            toast.success('Documento limpiado correctamente');
-        }
+    const handleClearDocument = () => {
+        setIsClearOpen(true);
+    };
+
+    const confirmClearDocument = async () => {
+        await clear();
+        toast.success('Documento limpiado correctamente');
+        setIsClearOpen(false);
     };
 
     return (
@@ -131,6 +132,17 @@ export default function DashboardPage() {
                     </Card>
                 </div>
             </main>
+
+            <ConfirmDialog
+                open={isClearOpen}
+                onOpenChange={setIsClearOpen}
+                onConfirm={confirmClearDocument}
+                title="Limpiar documento actual"
+                description="¿Estás seguro de limpiar el documento actual? Esta acción no se puede deshacer."
+                confirmText="Limpiar"
+                cancelText="Cancelar"
+                variant="destructive"
+            />
         </div>
     );
 }

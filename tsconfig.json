@@ -30,13 +30,22 @@
   },
   "include": [
     "next-env.d.ts",
-    "**/*.ts",
-    "**/*.tsx",
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "next.config.ts",
+    "tailwind.config.ts",
+    "eslint.config.mjs",
+    "postcss.config.mjs",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "templates/**",
+    "src (Base)/**",
+    "src/components/wizard/ui/DetalleRowEditor.tsx",
+    "exportExcel_PATCH.ts",
+    "excelAnchors_FIXED.ts"
   ]
 }

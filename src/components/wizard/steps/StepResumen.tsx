@@ -4,7 +4,7 @@ import { useState, useRef } from 'react';
 import { useDocumentStore } from '@/stores/docStore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Download, Upload, X, FileText, Image as ImageIcon } from 'lucide-react';
+import { Upload, X, FileText, Image as ImageIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { exportToExcel } from '@/lib/excel/exportExcel';
 
@@ -179,15 +179,29 @@ export default function StepResumen() {
                                                 </p>
                                                 {subcat.items.length > 0 && (
                                                     <div className="ml-3 mt-1 text-xs text-gray-600">
-                                                        {subcat.items.map((item, idx) => (
+                                                        {subcat.items.map((item) => (
                                                             <div key={item.id} className="flex items-center gap-1">
                                                                 <span>📄</span>
                                                                 <span>{item.itemNombre || '(Sin nombre)'}</span>
-                                                                {item.camposAdicionales.length > 0 && (
-                                                                    <span className="text-blue-600">
-                                                                        (+{item.camposAdicionales.length} campos)
-                                                                    </span>
-                                                                )}
+                                                                <span className="text-blue-600">
+                                                                    {item.sla ? `SLA: ${item.sla}` : 'SLA: N/D'}
+                                                                </span>
+                                                                <span className="text-gray-500">|</span>
+                                                                <span className="text-blue-600">
+                                                                    {item.buzon ? `Buzón: ${item.buzon}` : 'Buzón: N/D'}
+                                                                </span>
+                                                                <span className="text-gray-500">|</span>
+                                                                <span className="text-blue-600">
+                                                                    {item.formularioZoho ? 'Formulario: Sí' : 'Formulario: No'}
+                                                                </span>
+                                                                <span className="text-gray-500">|</span>
+                                                                <span className="text-blue-600">
+                                                                    Aprobadores: {(item.aprobadores || subcat.aprobadores) ? 'Sí' : 'No'}
+                                                                </span>
+                                                                <span className="text-gray-500">|</span>
+                                                                <span className="text-blue-600">
+                                                                    +{item.camposAdicionales.length} campos
+                                                                </span>
                                                             </div>
                                                         ))}
                                                     </div>

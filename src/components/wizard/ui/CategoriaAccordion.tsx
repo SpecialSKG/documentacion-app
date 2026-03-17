@@ -13,9 +13,10 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Trash2, Edit, Library } from 'lucide-react';
+import { Plus, Trash2, Edit, Library, ShieldCheck } from 'lucide-react';
 import ItemModal from './ItemModal';
 import SubcategoriaModal from './SubcategoriaModal';
+import SubcategoriaEditModal from './SubcategoriaEditModal';
 import AddFromCatalogModal from './AddFromCatalogModal';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { toast } from 'sonner';
@@ -28,7 +29,6 @@ interface CategoriaAccordionProps {
 export default function CategoriaAccordion({ categorias }: CategoriaAccordionProps) {
     const {
         addCategoria,
-        updateCategoria,
         deleteCategoria,
         addSubcategoria,
         updateSubcategoria,
@@ -38,7 +38,7 @@ export default function CategoriaAccordion({ categorias }: CategoriaAccordionPro
         deleteItem,
     } = useDocumentStore();
 
-    const { categorias: catalogoCategorias } = useCatalogo();
+    useCatalogo();
 
     const [selectedItem, setSelectedItem] = useState<Item | null>(null);
     const [selectedContext, setSelectedContext] = useState<{ categoriaId: string; subcategoriaId: string } | null>(null);
@@ -46,6 +46,8 @@ export default function CategoriaAccordion({ categorias }: CategoriaAccordionPro
 
     const [selectedSubcat, setSelectedSubcat] = useState<{ id: string; nombre: string; aprobadores: string; categoriaId: string } | null>(null);
     const [isSubcatModalOpen, setIsSubcatModalOpen] = useState(false);
+    const [selectedSubcatEdit, setSelectedSubcatEdit] = useState<{ id: string; nombre: string; categoriaId: string } | null>(null);
+    const [isSubcatEditModalOpen, setIsSubcatEditModalOpen] = useState(false);
 
     // Modal para agregar desde catálogo
     const [isCatalogModalOpen, setIsCatalogModalOpen] = useState(false);
@@ -115,11 +117,26 @@ export default function CategoriaAccordion({ categorias }: CategoriaAccordionPro
         setIsSubcatModalOpen(true);
     };
 
+    const handleEditSubcategoria = (catId: string, subcat: Subcategoria) => {
+        setSelectedSubcatEdit({
+            id: subcat.id,
+            nombre: subcat.nombre,
+            categoriaId: catId,
+        });
+        setIsSubcatEditModalOpen(true);
+    };
+
     const handleSaveSubcatAprobadores = (aprobadores: string) => {
         if (selectedSubcat) {
             updateSubcategoria(selectedSubcat.categoriaId, selectedSubcat.id, { aprobadores });
             toast.success('Aprobadores actualizados');
         }
+    };
+
+    const handleSaveSubcategoria = (nombre: string) => {
+        if (!selectedSubcatEdit) return;
+        updateSubcategoria(selectedSubcatEdit.categoriaId, selectedSubcatEdit.id, { nombre });
+        toast.success('Subcategoría actualizada');
     };
 
     const handleDeleteSubcategoria = (catId: string, subcatId: string) => {
@@ -154,6 +171,12 @@ export default function CategoriaAccordion({ categorias }: CategoriaAccordionPro
             addItem(categoriaId, subcategoriaId, item);
             toast.success('Ítem creado');
         }
+    };
+
+    const handleCloseItemModal = () => {
+        setIsItemModalOpen(false);
+        setSelectedItem(null);
+        setSelectedContext(null);
     };
 
     const handleDeleteItem = (catId: string, subcatId: string, itemId: string) => {
@@ -196,7 +219,7 @@ export default function CategoriaAccordion({ categorias }: CategoriaAccordionPro
 
             {categorias.length === 0 ? (
                 <Card className="p-8 text-center text-gray-500">
-                    <p>No hay categorías. Haz clic en "Agregar Categoría" para comenzar.</p>
+                    <p>No hay categorías. Haz clic en &quot;Agregar desde Catálogo&quot; para comenzar.</p>
                 </Card>
             ) : (
                 <Accordion type="multiple" className="space-y-2">
@@ -254,9 +277,18 @@ export default function CategoriaAccordion({ categorias }: CategoriaAccordionPro
                                                             <Button
                                                                 variant="outline"
                                                                 size="sm"
-                                                                onClick={() => handleEditSubcatAprobadores(categoria.id, subcat)}
+                                                                onClick={() => handleEditSubcategoria(categoria.id, subcat)}
+                                                                title="Editar subcategoría"
                                                             >
                                                                 <Edit className="w-3 h-3" />
+                                                            </Button>
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                onClick={() => handleEditSubcatAprobadores(categoria.id, subcat)}
+                                                                title="Aprobadores de subcategoría"
+                                                            >
+                                                                <ShieldCheck className="w-3 h-3" />
                                                             </Button>
                                                             <Button
                                                                 variant="destructive"
@@ -340,9 +372,10 @@ export default function CategoriaAccordion({ categorias }: CategoriaAccordionPro
             {/* Modal de Ítem */}
             {selectedContext && (
                 <ItemModal
+                    key={`${selectedContext.categoriaId}-${selectedContext.subcategoriaId}-${selectedItem?.id || 'new'}`}
                     item={selectedItem}
                     isOpen={isItemModalOpen}
-                    onClose={() => setIsItemModalOpen(false)}
+                    onClose={handleCloseItemModal}
                     onSave={handleSaveItem}
                     categoriaId={selectedContext.categoriaId}
                     subcategoriaId={selectedContext.subcategoriaId}
@@ -357,6 +390,16 @@ export default function CategoriaAccordion({ categorias }: CategoriaAccordionPro
                     isOpen={isSubcatModalOpen}
                     onClose={() => setIsSubcatModalOpen(false)}
                     onSave={handleSaveSubcatAprobadores}
+                />
+            )}
+
+            {/* Modal de Edición de Subcategoría */}
+            {selectedSubcatEdit && (
+                <SubcategoriaEditModal
+                    isOpen={isSubcatEditModalOpen}
+                    nombreActual={selectedSubcatEdit.nombre}
+                    onClose={() => setIsSubcatEditModalOpen(false)}
+                    onSave={handleSaveSubcategoria}
                 />
             )}
 
