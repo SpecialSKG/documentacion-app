@@ -106,7 +106,10 @@ export function SelectCreatable({
                         value={searchValue}
                         onValueChange={setSearchValue}
                     />
-                    <CommandList className="max-h-[300px]">
+                    <CommandList
+                        className="max-h-[300px] overflow-y-auto"
+                        onWheelCapture={(e) => e.stopPropagation()}
+                    >
                         <CommandEmpty>
                             {isNewOption ? (
                                 <div className="py-2 px-2">

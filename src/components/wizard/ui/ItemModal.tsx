@@ -251,7 +251,64 @@ export default function ItemModal({ item, isOpen, onClose, onSave, categoriaId, 
                         </CardContent>
                     </Card>
 
-                    {/* === SECCIÓN 2: PROPIEDADES DEL ÍTEM === */}
+                    {/* === SECCIÓN 2: CAMPOS ADICIONALES === */}
+                    <Card className="border-2 border-blue-200">
+                        <CardHeader>
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <CardTitle className="text-base">Campos Adicionales</CardTitle>
+                                    <p className="text-sm text-gray-600 mt-1">
+                                        Define campos personalizados para este ítem
+                                    </p>
+                                </div>
+                                <Button size="sm" onClick={handleAddCampo}>
+                                    <Plus className="w-4 h-4 mr-2" />
+                                    Agregar campo
+                                </Button>
+                            </div>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                            {camposAdicionales.length === 0 ? (
+                                <p className="text-sm text-gray-500 text-center py-4">
+                                    No hay campos adicionales. Haz clic en &quot;Agregar campo&quot; para crear uno.
+                                </p>
+                            ) : (
+                                camposAdicionales.map((campo, index) => (
+                                    <div key={index} className="flex gap-2 items-start p-3 bg-gray-50 rounded-lg border">
+                                        <div className="flex-1 space-y-2">
+                                            {/* Título del campo */}
+                                            <Input
+                                                placeholder="Título del campo"
+                                                value={campo.titulo}
+                                                onChange={(e) => handleUpdateCampo(index, 'titulo', e.target.value)}
+                                            />
+
+                                            {/* Tipo de campo - MEJORADO con SelectCreatable y placeholder */}
+                                            <div>
+                                                <Label className="text-xs text-gray-600">Tipo de campo adicional</Label>
+                                                <SelectCreatable
+                                                    value={campo.tipo}
+                                                    onValueChange={(value) => handleUpdateCampo(index, 'tipo', value as CampoAdicional['tipo'])}
+                                                    options={tipoCamposOptions}
+                                                    placeholder="Selecciona tipo (línea única, multilínea, lista, etc.)"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <Button
+                                            variant="destructive"
+                                            size="sm"
+                                            onClick={() => handleRemoveCampo(index)}
+                                        >
+                                            <X className="w-4 h-4" />
+                                        </Button>
+                                    </div>
+                                ))
+                            )}
+                        </CardContent>
+                    </Card>
+
+                    {/* === SECCIÓN 3: PROPIEDADES DEL ÍTEM === */}
                     <Card>
                         <CardHeader>
                             <CardTitle className="text-base">Propiedades del Ítem</CardTitle>
@@ -306,7 +363,7 @@ export default function ItemModal({ item, isOpen, onClose, onSave, categoriaId, 
                                 />
                             </div>
 
-                            {/* NUEVO v2.3: Aprobadores (Col K) - Con herencia de subcategoría */}
+                            {/* NUEVO v3.3: Aprobadores (Col K) - Con herencia de subcategoría */}
                             <div className="space-y-3 p-4 border-2 border-purple-200 rounded-lg bg-purple-50/30">
                                 <Label>Aprobadores (Col K)</Label>
 
@@ -384,63 +441,6 @@ export default function ItemModal({ item, isOpen, onClose, onSave, categoriaId, 
                                     rows={3}
                                 />
                             </div>
-                        </CardContent>
-                    </Card>
-
-                    {/* === SECCIÓN 3: CAMPOS ADICIONALES === */}
-                    <Card className="border-2 border-blue-200">
-                        <CardHeader>
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <CardTitle className="text-base">Campos Adicionales</CardTitle>
-                                    <p className="text-sm text-gray-600 mt-1">
-                                        Define campos personalizados para este ítem
-                                    </p>
-                                </div>
-                                <Button size="sm" onClick={handleAddCampo}>
-                                    <Plus className="w-4 h-4 mr-2" />
-                                    Agregar campo
-                                </Button>
-                            </div>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                            {camposAdicionales.length === 0 ? (
-                                <p className="text-sm text-gray-500 text-center py-4">
-                                    No hay campos adicionales. Haz clic en &quot;Agregar campo&quot; para crear uno.
-                                </p>
-                            ) : (
-                                camposAdicionales.map((campo, index) => (
-                                    <div key={index} className="flex gap-2 items-start p-3 bg-gray-50 rounded-lg border">
-                                        <div className="flex-1 space-y-2">
-                                            {/* Título del campo */}
-                                            <Input
-                                                placeholder="Título del campo"
-                                                value={campo.titulo}
-                                                onChange={(e) => handleUpdateCampo(index, 'titulo', e.target.value)}
-                                            />
-
-                                            {/* Tipo de campo - MEJORADO con SelectCreatable y placeholder */}
-                                            <div>
-                                                <Label className="text-xs text-gray-600">Tipo de campo adicional</Label>
-                                                <SelectCreatable
-                                                    value={campo.tipo}
-                                                    onValueChange={(value) => handleUpdateCampo(index, 'tipo', value as CampoAdicional['tipo'])}
-                                                    options={tipoCamposOptions}
-                                                    placeholder="Selecciona tipo (línea única, multilínea, lista, etc.)"
-                                                />
-                                            </div>
-                                        </div>
-
-                                        <Button
-                                            variant="destructive"
-                                            size="sm"
-                                            onClick={() => handleRemoveCampo(index)}
-                                        >
-                                            <X className="w-4 h-4" />
-                                        </Button>
-                                    </div>
-                                ))
-                            )}
                         </CardContent>
                     </Card>
 

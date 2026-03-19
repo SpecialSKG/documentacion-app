@@ -60,6 +60,26 @@ export default function CategoriaAccordion({ categorias }: CategoriaAccordionPro
         subcategoriaId?: string;
         itemId?: string;
     }>({ open: false, type: 'categoria' });
+    const [openCategorias, setOpenCategorias] = useState<string[]>([]);
+    const [openSubcategoriasByCategoria, setOpenSubcategoriasByCategoria] = useState<Record<string, string[]>>({});
+
+    const ensureExpandedPath = (categoriaId: string, subcategoriaId?: string) => {
+        setOpenCategorias((prev) =>
+            prev.includes(categoriaId) ? prev : [...prev, categoriaId]
+        );
+
+        if (!subcategoriaId) return;
+
+        setOpenSubcategoriasByCategoria((prev) => {
+            const current = prev[categoriaId] || [];
+            if (current.includes(subcategoriaId)) return prev;
+
+            return {
+                ...prev,
+                [categoriaId]: [...current, subcategoriaId],
+            };
+        });
+    };
 
     // === Handler para agregar desde catálogo ===
     const handleAddFromCatalog = (categoriaNombre: string, subcategoriaNombre: string, itemNombre: string) => {
@@ -92,6 +112,7 @@ export default function CategoriaAccordion({ categorias }: CategoriaAccordionPro
             itemNombre,
         };
         addItem(categoria.id, subcategoria.id, nuevoItem);
+        ensureExpandedPath(categoria.id, subcategoria.id);
 
         toast.success(`Ítem "${itemNombre}" agregado correctamente`);
     };
@@ -152,12 +173,14 @@ export default function CategoriaAccordion({ categorias }: CategoriaAccordionPro
     const handleAddItem = (categoriaId: string, subcategoriaId: string) => {
         setSelectedItem(null);
         setSelectedContext({ categoriaId, subcategoriaId });
+        ensureExpandedPath(categoriaId, subcategoriaId);
         setIsItemModalOpen(true);
     };
 
     const handleEditItem = (catId: string, subcatId: string, item: Item) => {
         setSelectedItem(item);
         setSelectedContext({ categoriaId: catId, subcategoriaId: subcatId });
+        ensureExpandedPath(catId, subcatId);
         setIsItemModalOpen(true);
     };
 
@@ -171,6 +194,7 @@ export default function CategoriaAccordion({ categorias }: CategoriaAccordionPro
             addItem(categoriaId, subcategoriaId, item);
             toast.success('Ítem creado');
         }
+        ensureExpandedPath(categoriaId, subcategoriaId);
     };
 
     const handleCloseItemModal = () => {
@@ -222,7 +246,12 @@ export default function CategoriaAccordion({ categorias }: CategoriaAccordionPro
                     <p>No hay categorías. Haz clic en &quot;Agregar desde Catálogo&quot; para comenzar.</p>
                 </Card>
             ) : (
-                <Accordion type="multiple" className="space-y-2">
+                <Accordion
+                    type="multiple"
+                    className="space-y-2"
+                    value={openCategorias}
+                    onValueChange={setOpenCategorias}
+                >
                     {categorias.map((categoria) => (
                         <AccordionItem key={categoria.id} value={categoria.id} className="border rounded-lg">
                             <div className="flex items-center px-4 gap-2">
@@ -250,7 +279,17 @@ export default function CategoriaAccordion({ categorias }: CategoriaAccordionPro
                                     {categoria.subcategorias.length === 0 ? (
                                         <p className="text-sm text-gray-500 py-2">No hay subcategorías</p>
                                     ) : (
-                                        <Accordion type="multiple" className="space-y-1">
+                                        <Accordion
+                                            type="multiple"
+                                            className="space-y-1"
+                                            value={openSubcategoriasByCategoria[categoria.id] || []}
+                                            onValueChange={(values) =>
+                                                setOpenSubcategoriasByCategoria((prev) => ({
+                                                    ...prev,
+                                                    [categoria.id]: values,
+                                                }))
+                                            }
+                                        >
                                             {categoria.subcategorias.map((subcat) => (
                                                 <AccordionItem
                                                     key={subcat.id}
