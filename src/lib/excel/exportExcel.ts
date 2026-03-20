@@ -19,6 +19,7 @@ import {
 import {
     SHEET_NAME,
     HEADER_CELLS,
+    DETAIL_HEADER_ROW,
     DETAIL_START_ROW,
     DETAIL_COLS,
     FLOWCHART_COL_START,
@@ -29,8 +30,10 @@ import {
 
 // Estilos base
 const DETAIL_FONT_NAME = 'Arial';
-const DETAIL_FONT_SIZE = 11;
-const HEADER_FONT_SIZE = 14;
+const DETAIL_FONT_SIZE = 12;
+const DETAIL_HEADER_FONT_SIZE = 12;
+const CATEGORY_FONT_SIZE = 14;
+const SUBCATEGORY_FONT_SIZE = 13;
 
 const GRID_BORDER_COLOR = 'FFBFBFBF';     // bordes internos
 const OUTER_BORDER_COLOR = 'FF000000';    // marco externo
@@ -77,6 +80,7 @@ export async function exportToExcel(
     }
 
     // 3) Tabla de detalle
+    applyDetailHeaderStyling(worksheet);
     const lastDetailRow = fillDetailTableHierarchical(worksheet, document);
 
     // 4) Aplicar estilo base solo a las filas realmente usadas
@@ -292,6 +296,28 @@ function applyBaseDetailStyling(
 }
 
 /**
+ * Estandariza la tipografía del encabezado de la tabla detalle.
+ */
+function applyDetailHeaderStyling(worksheet: ExcelJS.Worksheet): void {
+    const startCol = columnLetterToIndex(DETAIL_COLS.categoria);
+    const endCol = columnLetterToIndex(DETAIL_COLS.gruposUsuario);
+
+    for (let c = startCol; c <= endCol; c++) {
+        const cell = worksheet.getCell(DETAIL_HEADER_ROW, c);
+        cell.font = {
+            name: DETAIL_FONT_NAME,
+            size: DETAIL_HEADER_FONT_SIZE,
+            bold: true,
+        };
+        cell.alignment = {
+            vertical: 'middle',
+            horizontal: 'center',
+            wrapText: true,
+        };
+    }
+}
+
+/**
  * Marco externo (bordes medium alrededor del bloque usado).
  */
 function applyOuterBorder(
@@ -328,7 +354,8 @@ function applyOuterBorder(
 }
 
 /**
- * Fila separadora (merge B:N, relleno suave).
+ * Fila separadora con relleno suave, sin merge de fila completa.
+ * Esto evita conflictos con merges verticales de categoría/subcategoría.
  */
 function renderSeparatorRow(
     worksheet: ExcelJS.Worksheet,
@@ -343,16 +370,12 @@ function renderSeparatorRow(
         const cell = worksheet.getCell(rowNumber, c);
         cell.value = null;
         cell.style = {};
+        cell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: SEPARATOR_FILL },
+        };
     }
-
-    mergeCells(worksheet, `${startColLetter}${rowNumber}:${endColLetter}${rowNumber}`);
-
-    const cell = worksheet.getCell(`${startColLetter}${rowNumber}`);
-    cell.fill = {
-        type: 'pattern',
-        pattern: 'solid',
-        fgColor: { argb: SEPARATOR_FILL },
-    };
 }
 
 /* ====================== DETALLE JERÁRQUICO ====================== */
@@ -536,7 +559,7 @@ function styleCategoriaCell(worksheet: ExcelJS.Worksheet, rowNumber: number): vo
     const cell = worksheet.getCell(`${DETAIL_COLS.categoria}${rowNumber}`);
     cell.font = {
         name: DETAIL_FONT_NAME,
-        size: HEADER_FONT_SIZE,
+        size: CATEGORY_FONT_SIZE,
         bold: true,
     };
     cell.alignment = {
@@ -553,7 +576,7 @@ function styleSubcategoriaCell(worksheet: ExcelJS.Worksheet, rowNumber: number):
     const cell = worksheet.getCell(`${DETAIL_COLS.subcategoria}${rowNumber}`);
     cell.font = {
         name: DETAIL_FONT_NAME,
-        size: HEADER_FONT_SIZE,
+        size: SUBCATEGORY_FONT_SIZE,
         bold: true,
     };
     cell.alignment = {
