@@ -38,6 +38,8 @@ const SUBCATEGORY_FONT_SIZE = 13;
 const GRID_BORDER_COLOR = 'FFBFBFBF';     // bordes internos
 const OUTER_BORDER_COLOR = 'FF000000';    // marco externo
 const SEPARATOR_FILL = 'FFF2F2F2';        // relleno separadores
+const BASE_ROW_HEIGHT = 22.5;
+const SEPARATOR_ROW_HEIGHT = 9;
 
 type BorderWeight = 'thin' | 'medium';
 
@@ -170,10 +172,14 @@ function estimateLastDetailRow(detalle: DocumentDraft['detalle']): number {
 
     detalle.forEach((categoria: Categoria, catIndex: number) => {
         categoria.subcategorias.forEach((subcat: Subcategoria, subIndex: number) => {
-            subcat.items.forEach((item: Item) => {
+            subcat.items.forEach((item: Item, itemIndex: number) => {
                 const numCampos = item.camposAdicionales?.length || 0;
                 const numFilasItem = Math.max(2, numCampos || 1);
                 rows += numFilasItem;
+
+                if (itemIndex < subcat.items.length - 1) {
+                    rows += 1; // separador entre artículos
+                }
             });
 
             if (subIndex < categoria.subcategorias.length - 1) {
@@ -269,7 +275,15 @@ function applyBaseDetailStyling(
 
     for (let r = startRow; r <= endRow; r++) {
         const row = worksheet.getRow(r);
-        if (!row.height) row.height = 22.5;
+        if (!row.height) {
+            row.height = estimateAutoRowHeight(
+                worksheet,
+                r,
+                startColLetter,
+                endColLetter,
+                BASE_ROW_HEIGHT
+            );
+        }
 
         for (let c = startCol; c <= endCol; c++) {
             const cell = worksheet.getCell(r, c);
@@ -376,6 +390,8 @@ function renderSeparatorRow(
             fgColor: { argb: SEPARATOR_FILL },
         };
     }
+
+    worksheet.getRow(rowNumber).height = SEPARATOR_ROW_HEIGHT;
 }
 
 /* ====================== DETALLE JERÁRQUICO ====================== */
@@ -401,7 +417,7 @@ function fillDetailTableHierarchical(
         categoria.subcategorias.forEach((subcat: Subcategoria, subIndex: number) => {
             const subcatStartRow = currentRow;
 
-            subcat.items.forEach((item: Item) => {
+            subcat.items.forEach((item: Item, itemIndex: number) => {
                 const itemStartRow = currentRow;
 
                 const campos: CampoAdicional[] = item.camposAdicionales || [];
@@ -506,6 +522,17 @@ function fillDetailTableHierarchical(
                 }
 
                 currentRow += numFilasItem;
+
+                // Separador entre artículos de una misma subcategoría
+                if (itemIndex < subcat.items.length - 1) {
+                    renderSeparatorRow(
+                        worksheet,
+                        currentRow,
+                        DETAIL_COLS.categoria,
+                        DETAIL_COLS.gruposUsuario
+                    );
+                    currentRow += 1;
+                }
             });
 
             const subcatEndRow = currentRow - 1;
@@ -648,6 +675,51 @@ function clearPostDetailArea(
             cell.style = {};
         }
     }
+}
+
+function estimateAutoRowHeight(
+    worksheet: ExcelJS.Worksheet,
+    rowNumber: number,
+    startColLetter: string,
+    endColLetter: string,
+    minHeight: number
+): number {
+    const startCol = columnLetterToIndex(startColLetter);
+    const endCol = columnLetterToIndex(endColLetter);
+    let maxLines = 1;
+
+    for (let c = startCol; c <= endCol; c++) {
+        const cell = worksheet.getCell(rowNumber, c);
+        const text = cellValueToText(cell.value);
+        if (!text) continue;
+
+        const column = worksheet.getColumn(c);
+        const width = typeof column.width === 'number' ? column.width : 20;
+        const charsPerLine = Math.max(12, Math.floor(width * 1.3));
+
+        const linesForCell = text
+            .split('\n')
+            .reduce((acc, line) => acc + Math.max(1, Math.ceil(line.length / charsPerLine)), 0);
+
+        maxLines = Math.max(maxLines, linesForCell);
+    }
+
+    const computed = Math.min(130, Math.max(minHeight, maxLines * 15));
+    return computed;
+}
+
+function cellValueToText(value: ExcelJS.CellValue | null): string {
+    if (value === null || value === undefined) return '';
+    if (typeof value === 'string') return value;
+    if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+    if (value instanceof Date) return value.toISOString();
+    if (typeof value === 'object' && 'richText' in value && Array.isArray(value.richText)) {
+        return value.richText.map((part) => part.text ?? '').join('');
+    }
+    if (typeof value === 'object' && 'text' in value && typeof value.text === 'string') {
+        return value.text;
+    }
+    return '';
 }
 
 function mergeCells(worksheet: ExcelJS.Worksheet, range: string): void {
