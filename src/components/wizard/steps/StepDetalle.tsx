@@ -3,6 +3,10 @@
 import { useDocumentStore } from '@/stores/docStore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import CategoriaAccordion from '../ui/CategoriaAccordion';
+import { Button } from '@/components/ui/button';
+import { FlaskConical } from 'lucide-react';
+import { toast } from 'sonner';
+import { createDemoDetalleData } from '@/lib/demoData';
 
 /**
  * Paso 2: Detalle
@@ -10,16 +14,36 @@ import CategoriaAccordion from '../ui/CategoriaAccordion';
  * Reemplaza el sistema de filas planas con acordeón de 3 niveles
  */
 export default function StepDetalle() {
-    const { document } = useDocumentStore();
+    const { document, setDocument, save } = useDocumentStore();
+
+    const handleLoadDemoDetail = async () => {
+        const updatedDocument = {
+            ...document,
+            detalle: createDemoDetalleData(),
+            updatedAt: new Date().toISOString(),
+        };
+
+        setDocument(updatedDocument);
+        await save();
+        toast.success('Datos demo cargados en Detalle');
+    };
 
     return (
         <div className="space-y-6">
             <Card>
                 <CardHeader>
-                    <CardTitle>Detalle del Servicio</CardTitle>
-                    <CardDescription>
-                        Organiza el detalle en una estructura jerárquica: Categorías → Subcategorías → Ítems
-                    </CardDescription>
+                    <div className="flex items-start justify-between gap-3">
+                        <div>
+                            <CardTitle>Detalle del Servicio</CardTitle>
+                            <CardDescription>
+                                Organiza el detalle en una estructura jerárquica: Categorías → Subcategorías → Ítems
+                            </CardDescription>
+                        </div>
+                        <Button type="button" variant="outline" size="sm" onClick={handleLoadDemoDetail}>
+                            <FlaskConical className="w-4 h-4 mr-2" />
+                            Cargar detalle demo
+                        </Button>
+                    </div>
                 </CardHeader>
                 <CardContent>
                     <CategoriaAccordion categorias={document.detalle} />

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useDocumentStore } from '@/stores/docStore';
-import { Categoria, Subcategoria, Item, createEmptyItem } from '@/lib/document';
+import { Categoria, Subcategoria, Item } from '@/lib/document';
 import { useCatalogo } from '@/hooks/useCatalogo';
 import {
     Accordion,
@@ -17,7 +17,8 @@ import { Plus, Trash2, Edit, Library, ShieldCheck } from 'lucide-react';
 import ItemModal from './ItemModal';
 import SubcategoriaModal from './SubcategoriaModal';
 import SubcategoriaEditModal from './SubcategoriaEditModal';
-import AddFromCatalogModal from './AddFromCatalogModal';
+import AddCategoryModal from './AddCategoryModal';
+import AddSubcategoryCatalogModal from './AddSubcategoryCatalogModal';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { toast } from 'sonner';
 import { nanoid } from 'nanoid';
@@ -49,8 +50,12 @@ export default function CategoriaAccordion({ categorias }: CategoriaAccordionPro
     const [selectedSubcatEdit, setSelectedSubcatEdit] = useState<{ id: string; nombre: string; categoriaId: string } | null>(null);
     const [isSubcatEditModalOpen, setIsSubcatEditModalOpen] = useState(false);
 
-    // Modal para agregar desde catálogo
-    const [isCatalogModalOpen, setIsCatalogModalOpen] = useState(false);
+    const [isAddCategoryModalOpen, setIsAddCategoryModalOpen] = useState(false);
+    const [isAddSubcategoryModalOpen, setIsAddSubcategoryModalOpen] = useState(false);
+    const [selectedCategoriaForSubcategory, setSelectedCategoriaForSubcategory] = useState<{
+        id: string;
+        nombre: string;
+    } | null>(null);
 
     // Estados para confirmaciones
     const [deleteConfirm, setDeleteConfirm] = useState<{
@@ -81,40 +86,59 @@ export default function CategoriaAccordion({ categorias }: CategoriaAccordionPro
         });
     };
 
-    // === Handler para agregar desde catálogo ===
-    const handleAddFromCatalog = (categoriaNombre: string, subcategoriaNombre: string, itemNombre: string) => {
-        // Buscar o crear categoría
-        let categoria = categorias.find(c => c.nombre === categoriaNombre);
-        if (!categoria) {
-            categoria = {
-                id: nanoid(),
-                nombre: categoriaNombre,
-                subcategorias: [],
-            };
-            addCategoria(categoria);
+    const normalizeValue = (value: string) => value.trim().toLowerCase();
+
+    const handleAddCategoria = (categoriaNombre: string) => {
+        const exists = categorias.some(
+            (categoria) => normalizeValue(categoria.nombre) === normalizeValue(categoriaNombre)
+        );
+
+        if (exists) {
+            toast.info('La categoría ya existe');
+            return;
         }
 
-        // Buscar o crear subcategoría
-        let subcategoria = categoria.subcategorias.find(s => s.nombre === subcategoriaNombre);
-        if (!subcategoria) {
-            subcategoria = {
-                id: nanoid(),
-                nombre: subcategoriaNombre,
-                aprobadores: '',
-                items: [],
-            };
-            addSubcategoria(categoria.id, subcategoria);
-        }
-
-        // Crear el ítem con el nombre del catálogo
-        const nuevoItem = {
-            ...createEmptyItem(),
-            itemNombre,
+        const nuevaCategoria = {
+            id: nanoid(),
+            nombre: categoriaNombre.trim(),
+            subcategorias: [],
         };
-        addItem(categoria.id, subcategoria.id, nuevoItem);
-        ensureExpandedPath(categoria.id, subcategoria.id);
 
-        toast.success(`Ítem "${itemNombre}" agregado correctamente`);
+        addCategoria(nuevaCategoria);
+        ensureExpandedPath(nuevaCategoria.id);
+        toast.success(`Categoría "${nuevaCategoria.nombre}" agregada`);
+    };
+
+    const openAddSubcategoriaModal = (categoriaId: string, categoriaNombre: string) => {
+        setSelectedCategoriaForSubcategory({ id: categoriaId, nombre: categoriaNombre });
+        setIsAddSubcategoryModalOpen(true);
+    };
+
+    const handleAddSubcategoria = (subcategoriaNombre: string) => {
+        if (!selectedCategoriaForSubcategory) return;
+
+        const categoria = categorias.find((cat) => cat.id === selectedCategoriaForSubcategory.id);
+        if (!categoria) return;
+
+        const exists = categoria.subcategorias.some(
+            (subcat) => normalizeValue(subcat.nombre) === normalizeValue(subcategoriaNombre)
+        );
+
+        if (exists) {
+            toast.info('La subcategoría ya existe en esta categoría');
+            return;
+        }
+
+        const nuevaSubcategoria = {
+            id: nanoid(),
+            nombre: subcategoriaNombre.trim(),
+            aprobadores: '',
+            items: [],
+        };
+
+        addSubcategoria(categoria.id, nuevaSubcategoria);
+        ensureExpandedPath(categoria.id, nuevaSubcategoria.id);
+        toast.success(`Subcategoría "${nuevaSubcategoria.nombre}" agregada`);
     };
 
     // === Handlers para Categorías ===
@@ -235,15 +259,15 @@ export default function CategoriaAccordion({ categorias }: CategoriaAccordionPro
         <div className="space-y-4">
             <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold">Estructura Jerárquica</h3>
-                <Button onClick={() => setIsCatalogModalOpen(true)} variant="default">
+                <Button onClick={() => setIsAddCategoryModalOpen(true)} variant="default">
                     <Library className="w-4 h-4 mr-2" />
-                    Agregar desde Catálogo
+                    Agregar Categoría
                 </Button>
             </div>
 
             {categorias.length === 0 ? (
                 <Card className="p-8 text-center text-gray-500">
-                    <p>No hay categorías. Haz clic en &quot;Agregar desde Catálogo&quot; para comenzar.</p>
+                    <p>No hay categorías. Haz clic en &quot;Agregar Categoría&quot; para comenzar.</p>
                 </Card>
             ) : (
                 <Accordion
@@ -265,6 +289,14 @@ export default function CategoriaAccordion({ categorias }: CategoriaAccordionPro
                                         </Badge>
                                     </div>
                                 </AccordionTrigger>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => openAddSubcategoriaModal(categoria.id, categoria.nombre)}
+                                >
+                                    <Plus className="w-4 h-4 mr-2" />
+                                    Agregar Subcategoría
+                                </Button>
                                 <Button
                                     variant="destructive"
                                     size="sm"
@@ -442,12 +474,23 @@ export default function CategoriaAccordion({ categorias }: CategoriaAccordionPro
                 />
             )}
 
-            {/* Modal para agregar desde catálogo */}
-            <AddFromCatalogModal
-                isOpen={isCatalogModalOpen}
-                onClose={() => setIsCatalogModalOpen(false)}
-                onSave={handleAddFromCatalog}
+            <AddCategoryModal
+                isOpen={isAddCategoryModalOpen}
+                onClose={() => setIsAddCategoryModalOpen(false)}
+                onSave={handleAddCategoria}
             />
+
+            {selectedCategoriaForSubcategory && (
+                <AddSubcategoryCatalogModal
+                    isOpen={isAddSubcategoryModalOpen}
+                    onClose={() => {
+                        setIsAddSubcategoryModalOpen(false);
+                        setSelectedCategoriaForSubcategory(null);
+                    }}
+                    categoriaNombre={selectedCategoriaForSubcategory.nombre}
+                    onSave={handleAddSubcategoria}
+                />
+            )}
 
             {/* Dialog de confirmación para eliminaciones */}
             <ConfirmDialog

@@ -39,7 +39,8 @@ const GRID_BORDER_COLOR = 'FFBFBFBF';     // bordes internos
 const OUTER_BORDER_COLOR = 'FF000000';    // marco externo
 const SEPARATOR_FILL = 'FFF2F2F2';        // relleno separadores
 const BASE_ROW_HEIGHT = 22.5;
-const SEPARATOR_ROW_HEIGHT = 9;
+const SEPARATOR_ROW_HEIGHT = 12;
+const PRE_DETAIL_SPACER_ROW_HEIGHT = 16;
 
 type BorderWeight = 'thin' | 'medium';
 
@@ -83,6 +84,7 @@ export async function exportToExcel(
 
     // 3) Tabla de detalle
     applyDetailHeaderStyling(worksheet);
+    applyPreDetailSpacerStyling(worksheet);
     const lastDetailRow = fillDetailTableHierarchical(worksheet, document);
 
     // 4) Aplicar estilo base solo a las filas realmente usadas
@@ -161,7 +163,7 @@ function fillGeneralData(worksheet: ExcelJS.Worksheet, document: DocumentDraft):
  * Reglas:
  * - Cada ítem ocupa N filas = max(2, camposAdicionales.length || 1)
  * - 1 fila separador entre subcategorías
- * - 2 filas separador entre categorías
+ * - 1 fila separador entre categorías
  */
 function estimateLastDetailRow(detalle: DocumentDraft['detalle']): number {
     if (!detalle || detalle.length === 0) {
@@ -188,7 +190,7 @@ function estimateLastDetailRow(detalle: DocumentDraft['detalle']): number {
         });
 
         if (catIndex < detalle.length - 1) {
-            rows += 2; // separador entre categorías
+            rows += 1; // separador entre categorías
         }
     });
 
@@ -275,13 +277,14 @@ function applyBaseDetailStyling(
 
     for (let r = startRow; r <= endRow; r++) {
         const row = worksheet.getRow(r);
-        if (!row.height) {
+        if (row.height !== SEPARATOR_ROW_HEIGHT) {
+            const minHeight = Math.max(BASE_ROW_HEIGHT, row.height || 0);
             row.height = estimateAutoRowHeight(
                 worksheet,
                 r,
                 startColLetter,
                 endColLetter,
-                BASE_ROW_HEIGHT
+                minHeight
             );
         }
 
@@ -295,7 +298,7 @@ function applyBaseDetailStyling(
 
             cell.alignment = {
                 vertical: 'middle',
-                horizontal: 'left',
+                horizontal: 'center',
                 wrapText: true,
             };
 
@@ -329,6 +332,13 @@ function applyDetailHeaderStyling(worksheet: ExcelJS.Worksheet): void {
             wrapText: true,
         };
     }
+}
+
+/**
+ * Ajusta la fila espaciadora entre el encabezado de detalle y los datos.
+ */
+function applyPreDetailSpacerStyling(worksheet: ExcelJS.Worksheet): void {
+    worksheet.getRow(DETAIL_START_ROW - 1).height = PRE_DETAIL_SPACER_ROW_HEIGHT;
 }
 
 /**
@@ -571,8 +581,6 @@ function fillDetailTableHierarchical(
         if (catIndex < categorias.length - 1) {
             renderSeparatorRow(worksheet, currentRow, DETAIL_COLS.categoria, DETAIL_COLS.gruposUsuario);
             currentRow += 1;
-            renderSeparatorRow(worksheet, currentRow, DETAIL_COLS.categoria, DETAIL_COLS.gruposUsuario);
-            currentRow += 1;
         }
     });
 
@@ -695,16 +703,16 @@ function estimateAutoRowHeight(
 
         const column = worksheet.getColumn(c);
         const width = typeof column.width === 'number' ? column.width : 20;
-        const charsPerLine = Math.max(12, Math.floor(width * 1.3));
+        const charsPerLine = Math.max(10, Math.floor(width * 1.05));
 
         const linesForCell = text
-            .split('\n')
+            .split(/\r?\n/)
             .reduce((acc, line) => acc + Math.max(1, Math.ceil(line.length / charsPerLine)), 0);
 
         maxLines = Math.max(maxLines, linesForCell);
     }
 
-    const computed = Math.min(130, Math.max(minHeight, maxLines * 15));
+    const computed = Math.min(180, Math.max(minHeight, maxLines * 15));
     return computed;
 }
 
