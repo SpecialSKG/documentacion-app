@@ -1,8 +1,9 @@
 import { Categoria, GeneralData, Item } from '@/lib/document';
+import { nanoid } from 'nanoid';
 
 function createDemoItem(overrides: Partial<Item>): Item {
     return {
-        id: overrides.id || crypto.randomUUID(),
+        id: overrides.id || nanoid(),
         itemNombre: '',
         camposAdicionales: [],
         detalle: '',
@@ -39,11 +40,11 @@ export const DEMO_GENERAL_DATA: GeneralData = {
 export function createDemoDetalleData(): Categoria[] {
     return [
         {
-            id: crypto.randomUUID(),
+            id: nanoid(),
             nombre: 'Infraestructura',
             subcategorias: [
                 {
-                    id: crypto.randomUUID(),
+                    id: nanoid(),
                     nombre: 'Servidores',
                     aprobadores: 'Aprobador Infra 1\nAprobador Infra 2',
                     items: [
@@ -87,7 +88,7 @@ export function createDemoDetalleData(): Categoria[] {
                     ],
                 },
                 {
-                    id: crypto.randomUUID(),
+                    id: nanoid(),
                     nombre: 'Redes',
                     aprobadores: 'Aprobador Redes',
                     items: [
@@ -135,11 +136,11 @@ export function createDemoDetalleData(): Categoria[] {
             ],
         },
         {
-            id: crypto.randomUUID(),
+            id: nanoid(),
             nombre: 'Aplicaciones',
             subcategorias: [
                 {
-                    id: crypto.randomUUID(),
+                    id: nanoid(),
                     nombre: 'Software',
                     aprobadores: '',
                     items: [
@@ -184,7 +185,7 @@ export function createDemoDetalleData(): Categoria[] {
                     ],
                 },
                 {
-                    id: crypto.randomUUID(),
+                    id: nanoid(),
                     nombre: 'Bases de datos',
                     aprobadores: '',
                     items: [

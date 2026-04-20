@@ -51,6 +51,8 @@ export function SelectCreatable({
 
     // Encontrar la opción seleccionada
     const selectedOption = options.find((option) => option.value === value);
+    const displayValue =
+        selectedOption?.label ?? (value && value.trim().length > 0 ? value : placeholder);
 
     // Filtrar opciones basado en búsqueda
     const filteredOptions = React.useMemo(() => {
@@ -91,11 +93,11 @@ export function SelectCreatable({
                     disabled={disabled}
                     className={cn(
                         'w-full justify-between',
-                        !value && 'text-muted-foreground',
+                        (!value || value.trim().length === 0) && 'text-muted-foreground',
                         className
                     )}
                 >
-                    {selectedOption ? selectedOption.label : placeholder}
+                    {displayValue}
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
             </PopoverTrigger>

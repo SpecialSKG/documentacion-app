@@ -3,9 +3,9 @@
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, ArrowRight, Home, Download, Save } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Home, Save } from 'lucide-react';
 import { useDocumentStore } from '@/stores/docStore';
-import { toast } from 'sonner';
+import { alertError, alertSuccess } from '@/lib/alerts';
 import StepGeneral from './steps/StepGeneral';
 import StepDetalle from './steps/StepDetalle';
 import StepResumen from './steps/StepResumen';
@@ -22,7 +22,7 @@ export default function WizardShell() {
     const stepParam = searchParams.get('step');
     const currentStep = parseInt(stepParam || '1', 10);
 
-    const { setCurrentStep, save, load } = useDocumentStore();
+    const { setCurrentStep, save, load, document } = useDocumentStore();
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
@@ -38,7 +38,43 @@ export default function WizardShell() {
         setCurrentStep(currentStep);
     }, [currentStep, setCurrentStep]);
 
-    const handleNext = () => {
+    const validateCurrentStep = async (): Promise<boolean> => {
+        if (currentStep === 1) {
+            if (!document.general.nombreServicio?.trim()) {
+                await alertError('Campo obligatorio', 'Debes completar "Nombre del Servicio" para continuar.');
+                return false;
+            }
+        }
+
+        if (currentStep === 2) {
+            const hasAtLeastOneItem = document.detalle.some((cat) =>
+                cat.subcategorias.some((subcat) => subcat.items.length > 0)
+            );
+
+            if (!hasAtLeastOneItem) {
+                await alertError('Detalle incompleto', 'Agrega al menos un ítem en el paso Detalle para continuar.');
+                return false;
+            }
+
+            const hasItemWithoutName = document.detalle.some((cat) =>
+                cat.subcategorias.some((subcat) =>
+                    subcat.items.some((item) => !item.itemNombre?.trim())
+                )
+            );
+
+            if (hasItemWithoutName) {
+                await alertError('Detalle incompleto', 'Hay ítems sin nombre. Completa ese dato para continuar.');
+                return false;
+            }
+        }
+
+        return true;
+    };
+
+    const handleNext = async () => {
+        const isValid = await validateCurrentStep();
+        if (!isValid) return;
+
         if (currentStep < STEPS.length) {
             router.push(`/nuevo?step=${currentStep + 1}`);
         }
@@ -54,26 +90,21 @@ export default function WizardShell() {
 
     const handleSave = async () => {
         await save();
-        toast.success('Borrador guardado correctamente');
-    };
-
-    const handleExport = async () => {
-        // La exportación se maneja en el StepResumen
-        toast.info('Ve al paso 3 para exportar el documento');
+        await alertSuccess('Borrador guardado correctamente');
     };
 
     const CurrentStepComponent = STEPS[currentStep - 1]?.component || StepGeneral;
 
     if (isLoading) {
         return (
-            <div className="min-h-screen flex items-center justify-center">
+            <div className="min-h-[100dvh] flex items-center justify-center">
                 <p className="text-gray-600">Cargando documento...</p>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 flex flex-col">
+        <div className="min-h-[100dvh] bg-gray-50 flex flex-col">
             {/* Header con progreso */}
             <header className="bg-white border-b sticky top-0 z-10 shadow-sm">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
@@ -89,17 +120,6 @@ export default function WizardShell() {
                                 <Save className="w-4 h-4 mr-2" />
                                 Guardar borrador
                             </Button>
-                            {currentStep === 3 ? (
-                                <Button size="sm" onClick={handleExport}>
-                                    <Download className="w-4 h-4 mr-2" />
-                                    Exportar
-                                </Button>
-                            ) : (
-                                <Button size="sm" disabled variant="secondary">
-                                    <Download className="w-4 h-4 mr-2" />
-                                    Exportar (disponible en paso 3)
-                                </Button>
-                            )}
                         </div>
                     </div>
 

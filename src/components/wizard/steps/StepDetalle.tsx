@@ -5,8 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import CategoriaAccordion from '../ui/CategoriaAccordion';
 import { Button } from '@/components/ui/button';
 import { FlaskConical } from 'lucide-react';
-import { toast } from 'sonner';
 import { createDemoDetalleData } from '@/lib/demoData';
+import { alertSuccess } from '@/lib/alerts';
 
 /**
  * Paso 2: Detalle
@@ -25,7 +25,7 @@ export default function StepDetalle() {
 
         setDocument(updatedDocument);
         await save();
-        toast.success('Datos demo cargados en Detalle');
+        await alertSuccess('Datos demo cargados en Detalle');
     };
 
     return (

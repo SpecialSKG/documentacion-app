@@ -5,8 +5,8 @@ import { useDocumentStore } from '@/stores/docStore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Upload, X, FileText, Image as ImageIcon } from 'lucide-react';
-import { toast } from 'sonner';
 import { exportToExcel } from '@/lib/excel/exportExcel';
+import { alertError, alertSuccess } from '@/lib/alerts';
 
 export default function StepResumen() {
     const { document, setFlowchart, removeFlowchart } = useDocumentStore();
@@ -22,7 +22,7 @@ export default function StepResumen() {
 
         // Validar tipo de archivo
         if (!file.type.startsWith('image/')) {
-            toast.error('Por favor selecciona una imagen válida (PNG, JPG)');
+            await alertError('Archivo inválido', 'Por favor selecciona una imagen válida (PNG, JPG).');
             return;
         }
 
@@ -36,10 +36,10 @@ export default function StepResumen() {
                 mimeType: file.type,
                 base64,
             });
-            toast.success('Flujograma cargado correctamente');
+            void alertSuccess('Flujograma cargado correctamente');
         };
         reader.onerror = () => {
-            toast.error('Error al cargar la imagen');
+            void alertError('Error al cargar la imagen');
         };
         reader.readAsDataURL(file);
     };
@@ -50,7 +50,7 @@ export default function StepResumen() {
         if (fileInputRef.current) {
             fileInputRef.current.value = '';
         }
-        toast.success('Flujograma eliminado');
+        void alertSuccess('Flujograma eliminado');
     };
 
     const handleExportTemplate = async () => {
@@ -78,10 +78,10 @@ export default function StepResumen() {
             a.click();
             URL.revokeObjectURL(url);
 
-            toast.success('Documento exportado correctamente');
+            await alertSuccess('Documento exportado correctamente');
         } catch (error) {
             console.error('Error al exportar:', error);
-            toast.error('Error al exportar el documento a Excel');
+            await alertError('Error al exportar', 'No se pudo exportar el documento a Excel.');
         } finally {
             setIsExporting(false);
         }
@@ -99,7 +99,7 @@ export default function StepResumen() {
     const hasData = general.nombreServicio || detalle.length > 0;
 
     return (
-        <div className="space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Resumen de datos generales */}
             <Card>
                 <CardHeader>

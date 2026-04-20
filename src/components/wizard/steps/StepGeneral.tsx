@@ -26,8 +26,8 @@ import { SelectCreatable } from "@/components/ui/SelectCreatable";
 import { useDataOptions } from "@/hooks/useDataOptions";
 import { Button } from "@/components/ui/button";
 import { FlaskConical } from "lucide-react";
-import { toast } from "sonner";
 import { DEMO_GENERAL_DATA } from "@/lib/demoData";
+import { alertSuccess } from "@/lib/alerts";
 
 export default function StepGeneral() {
   const { document, updateGeneral } = useDocumentStore();
@@ -50,7 +50,7 @@ export default function StepGeneral() {
   const handleLoadDemoData = () => {
     form.reset(DEMO_GENERAL_DATA);
     updateGeneral(DEMO_GENERAL_DATA);
-    toast.success("Datos demo cargados en Datos Generales");
+    void alertSuccess("Datos demo cargados en Datos Generales");
   };
 
   return (

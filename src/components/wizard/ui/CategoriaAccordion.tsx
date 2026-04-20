@@ -18,10 +18,9 @@ import ItemModal from './ItemModal';
 import SubcategoriaModal from './SubcategoriaModal';
 import SubcategoriaEditModal from './SubcategoriaEditModal';
 import AddCategoryModal from './AddCategoryModal';
-import AddSubcategoryCatalogModal from './AddSubcategoryCatalogModal';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
-import { toast } from 'sonner';
 import { nanoid } from 'nanoid';
+import { alertError, alertInfo, alertSuccess } from '@/lib/alerts';
 
 interface CategoriaAccordionProps {
     categorias: Categoria[];
@@ -42,7 +41,7 @@ export default function CategoriaAccordion({ categorias }: CategoriaAccordionPro
     useCatalogo();
 
     const [selectedItem, setSelectedItem] = useState<Item | null>(null);
-    const [selectedContext, setSelectedContext] = useState<{ categoriaId: string; subcategoriaId: string } | null>(null);
+    const [selectedContext, setSelectedContext] = useState<{ categoriaId: string; subcategoriaId?: string } | null>(null);
     const [isItemModalOpen, setIsItemModalOpen] = useState(false);
 
     const [selectedSubcat, setSelectedSubcat] = useState<{ id: string; nombre: string; aprobadores: string; categoriaId: string } | null>(null);
@@ -51,12 +50,6 @@ export default function CategoriaAccordion({ categorias }: CategoriaAccordionPro
     const [isSubcatEditModalOpen, setIsSubcatEditModalOpen] = useState(false);
 
     const [isAddCategoryModalOpen, setIsAddCategoryModalOpen] = useState(false);
-    const [isAddSubcategoryModalOpen, setIsAddSubcategoryModalOpen] = useState(false);
-    const [selectedCategoriaForSubcategory, setSelectedCategoriaForSubcategory] = useState<{
-        id: string;
-        nombre: string;
-    } | null>(null);
-
     // Estados para confirmaciones
     const [deleteConfirm, setDeleteConfirm] = useState<{
         open: boolean;
@@ -65,8 +58,16 @@ export default function CategoriaAccordion({ categorias }: CategoriaAccordionPro
         subcategoriaId?: string;
         itemId?: string;
     }>({ open: false, type: 'categoria' });
-    const [openCategorias, setOpenCategorias] = useState<string[]>([]);
-    const [openSubcategoriasByCategoria, setOpenSubcategoriasByCategoria] = useState<Record<string, string[]>>({});
+    const [openCategorias, setOpenCategorias] = useState<string[]>(
+        () => categorias.map((categoria) => categoria.id)
+    );
+    const [openSubcategoriasByCategoria, setOpenSubcategoriasByCategoria] = useState<Record<string, string[]>>(
+        () =>
+            categorias.reduce<Record<string, string[]>>((acc, categoria) => {
+                acc[categoria.id] = categoria.subcategorias.map((subcat) => subcat.id);
+                return acc;
+            }, {})
+    );
 
     const ensureExpandedPath = (categoriaId: string, subcategoriaId?: string) => {
         setOpenCategorias((prev) =>
@@ -88,44 +89,27 @@ export default function CategoriaAccordion({ categorias }: CategoriaAccordionPro
 
     const normalizeValue = (value: string) => value.trim().toLowerCase();
 
-    const handleAddCategoria = (categoriaNombre: string) => {
-        const exists = categorias.some(
-            (categoria) => normalizeValue(categoria.nombre) === normalizeValue(categoriaNombre)
+    const handleAddCategoria = (categoriaNombre: string, subcategoriaNombre: string) => {
+        let categoria = categorias.find(
+            (current) => normalizeValue(current.nombre) === normalizeValue(categoriaNombre)
         );
 
-        if (exists) {
-            toast.info('La categoría ya existe');
-            return;
+        if (!categoria) {
+            categoria = {
+                id: nanoid(),
+                nombre: categoriaNombre.trim(),
+                subcategorias: [],
+            };
+            addCategoria(categoria);
         }
 
-        const nuevaCategoria = {
-            id: nanoid(),
-            nombre: categoriaNombre.trim(),
-            subcategorias: [],
-        };
-
-        addCategoria(nuevaCategoria);
-        ensureExpandedPath(nuevaCategoria.id);
-        toast.success(`Categoría "${nuevaCategoria.nombre}" agregada`);
-    };
-
-    const openAddSubcategoriaModal = (categoriaId: string, categoriaNombre: string) => {
-        setSelectedCategoriaForSubcategory({ id: categoriaId, nombre: categoriaNombre });
-        setIsAddSubcategoryModalOpen(true);
-    };
-
-    const handleAddSubcategoria = (subcategoriaNombre: string) => {
-        if (!selectedCategoriaForSubcategory) return;
-
-        const categoria = categorias.find((cat) => cat.id === selectedCategoriaForSubcategory.id);
-        if (!categoria) return;
-
-        const exists = categoria.subcategorias.some(
+        const existingSubcat = categoria.subcategorias.find(
             (subcat) => normalizeValue(subcat.nombre) === normalizeValue(subcategoriaNombre)
         );
 
-        if (exists) {
-            toast.info('La subcategoría ya existe en esta categoría');
+        if (existingSubcat) {
+            ensureExpandedPath(categoria.id, existingSubcat.id);
+            void alertInfo('La subcategoría ya existe en esta categoría');
             return;
         }
 
@@ -138,7 +122,7 @@ export default function CategoriaAccordion({ categorias }: CategoriaAccordionPro
 
         addSubcategoria(categoria.id, nuevaSubcategoria);
         ensureExpandedPath(categoria.id, nuevaSubcategoria.id);
-        toast.success(`Subcategoría "${nuevaSubcategoria.nombre}" agregada`);
+        void alertSuccess(`Subcategoría "${nuevaSubcategoria.nombre}" agregada`);
     };
 
     // === Handlers para Categorías ===
@@ -174,14 +158,14 @@ export default function CategoriaAccordion({ categorias }: CategoriaAccordionPro
     const handleSaveSubcatAprobadores = (aprobadores: string) => {
         if (selectedSubcat) {
             updateSubcategoria(selectedSubcat.categoriaId, selectedSubcat.id, { aprobadores });
-            toast.success('Aprobadores actualizados');
+            void alertSuccess('Aprobadores actualizados');
         }
     };
 
     const handleSaveSubcategoria = (nombre: string) => {
         if (!selectedSubcatEdit) return;
         updateSubcategoria(selectedSubcatEdit.categoriaId, selectedSubcatEdit.id, { nombre });
-        toast.success('Subcategoría actualizada');
+        void alertSuccess('Subcategoría actualizada');
     };
 
     const handleDeleteSubcategoria = (catId: string, subcatId: string) => {
@@ -201,6 +185,13 @@ export default function CategoriaAccordion({ categorias }: CategoriaAccordionPro
         setIsItemModalOpen(true);
     };
 
+    const handleAddFromCategory = (categoriaId: string) => {
+        setSelectedItem(null);
+        setSelectedContext({ categoriaId });
+        ensureExpandedPath(categoriaId);
+        setIsItemModalOpen(true);
+    };
+
     const handleEditItem = (catId: string, subcatId: string, item: Item) => {
         setSelectedItem(item);
         setSelectedContext({ categoriaId: catId, subcategoriaId: subcatId });
@@ -208,17 +199,52 @@ export default function CategoriaAccordion({ categorias }: CategoriaAccordionPro
         setIsItemModalOpen(true);
     };
 
-    const handleSaveItem = (item: Item, categoriaId: string, subcategoriaId: string) => {
+    const handleSaveItem = (
+        item: Item,
+        categoriaId: string,
+        subcategoriaId: string,
+        _categoriaNombre: string,
+        subcategoriaNombre: string
+    ) => {
         if (selectedItem) {
             // Edición
             updateItem(categoriaId, subcategoriaId, item.id, item);
-            toast.success('Ítem actualizado');
+            void alertSuccess('Ítem actualizado');
         } else {
-            // Creación
-            addItem(categoriaId, subcategoriaId, item);
-            toast.success('Ítem creado');
+            if (!subcategoriaId) {
+                const categoria = categorias.find((current) => current.id === categoriaId);
+                if (!categoria) {
+                    void alertError('No se encontró la categoría de destino');
+                    return;
+                }
+
+                const normalizedSubcatName = normalizeValue(subcategoriaNombre);
+                const existingSubcat = categoria.subcategorias.find(
+                    (subcat) => normalizeValue(subcat.nombre) === normalizedSubcatName
+                );
+
+                let finalSubcatId = existingSubcat?.id;
+
+                if (!finalSubcatId) {
+                    const nuevaSubcategoria = {
+                        id: nanoid(),
+                        nombre: subcategoriaNombre.trim(),
+                        aprobadores: '',
+                        items: [],
+                    };
+                    addSubcategoria(categoriaId, nuevaSubcategoria);
+                    finalSubcatId = nuevaSubcategoria.id;
+                }
+
+                addItem(categoriaId, finalSubcatId, item);
+                ensureExpandedPath(categoriaId, finalSubcatId);
+            } else {
+                // Creación normal (flujo Agregar Ítem intacto)
+                addItem(categoriaId, subcategoriaId, item);
+                ensureExpandedPath(categoriaId, subcategoriaId);
+            }
+            void alertSuccess('Ítem creado');
         }
-        ensureExpandedPath(categoriaId, subcategoriaId);
     };
 
     const handleCloseItemModal = () => {
@@ -243,13 +269,13 @@ export default function CategoriaAccordion({ categorias }: CategoriaAccordionPro
 
         if (type === 'categoria' && categoriaId) {
             deleteCategoria(categoriaId);
-            toast.success('Categoría eliminada');
+            void alertSuccess('Categoría eliminada');
         } else if (type === 'subcategoria' && categoriaId && subcategoriaId) {
             deleteSubcategoria(categoriaId, subcategoriaId);
-            toast.success('Subcategoría eliminada');
+            void alertSuccess('Subcategoría eliminada');
         } else if (type === 'item' && categoriaId && subcategoriaId && itemId) {
             deleteItem(categoriaId, subcategoriaId, itemId);
-            toast.success('Ítem eliminado');
+            void alertSuccess('Ítem eliminado');
         }
 
         setDeleteConfirm({ open: false, type: 'categoria' });
@@ -292,7 +318,7 @@ export default function CategoriaAccordion({ categorias }: CategoriaAccordionPro
                                 <Button
                                     variant="outline"
                                     size="sm"
-                                    onClick={() => openAddSubcategoriaModal(categoria.id, categoria.nombre)}
+                                    onClick={() => handleAddFromCategory(categoria.id)}
                                 >
                                     <Plus className="w-4 h-4 mr-2" />
                                     Agregar Subcategoría
@@ -443,7 +469,7 @@ export default function CategoriaAccordion({ categorias }: CategoriaAccordionPro
             {/* Modal de Ítem */}
             {selectedContext && (
                 <ItemModal
-                    key={`${selectedContext.categoriaId}-${selectedContext.subcategoriaId}-${selectedItem?.id || 'new'}`}
+                    key={`${selectedContext.categoriaId}-${selectedContext.subcategoriaId || 'no-subcat'}-${selectedItem?.id || 'new'}`}
                     item={selectedItem}
                     isOpen={isItemModalOpen}
                     onClose={handleCloseItemModal}
@@ -479,18 +505,6 @@ export default function CategoriaAccordion({ categorias }: CategoriaAccordionPro
                 onClose={() => setIsAddCategoryModalOpen(false)}
                 onSave={handleAddCategoria}
             />
-
-            {selectedCategoriaForSubcategory && (
-                <AddSubcategoryCatalogModal
-                    isOpen={isAddSubcategoryModalOpen}
-                    onClose={() => {
-                        setIsAddSubcategoryModalOpen(false);
-                        setSelectedCategoriaForSubcategory(null);
-                    }}
-                    categoriaNombre={selectedCategoriaForSubcategory.nombre}
-                    onSave={handleAddSubcategoria}
-                />
-            )}
 
             {/* Dialog de confirmación para eliminaciones */}
             <ConfirmDialog

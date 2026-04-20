@@ -27,12 +27,19 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Plus, X, Save } from 'lucide-react';
+import { alertError } from '@/lib/alerts';
 
 interface ItemModalProps {
     item: Item | null;
     isOpen: boolean;
     onClose: () => void;
-    onSave: (item: Item, categoriaId: string, subcategoriaId: string) => void;
+    onSave: (
+        item: Item,
+        categoriaId: string,
+        subcategoriaId: string,
+        categoriaNombre: string,
+        subcategoriaNombre: string
+    ) => void;
     // Contexto jerárquico
     categoriaId?: string;
     subcategoriaId?: string;
@@ -80,11 +87,13 @@ function getInitialState(
     let selectedCategoria = '';
     let selectedSubcategoria = '';
 
-    if (categoriaId && subcategoriaId) {
+    if (categoriaId) {
         const categoria = detalle.find((cat) => cat.id === categoriaId);
-        const subcategoria = categoria?.subcategorias.find((sub) => sub.id === subcategoriaId);
         selectedCategoria = categoria?.nombre || '';
-        selectedSubcategoria = subcategoria?.nombre || '';
+        if (subcategoriaId) {
+            const subcategoria = categoria?.subcategorias.find((sub) => sub.id === subcategoriaId);
+            selectedSubcategoria = subcategoria?.nombre || '';
+        }
     }
 
     return {
@@ -107,7 +116,9 @@ export default function ItemModal({ item, isOpen, onClose, onSave, categoriaId, 
     const [selectedSubcategoria, setSelectedSubcategoria] = useState(initialState.selectedSubcategoria);
     const [camposAdicionales, setCamposAdicionales] = useState<CampoAdicional[]>(initialState.camposAdicionales);
     const [useSubcatAprobadores, setUseSubcatAprobadores] = useState(initialState.useSubcatAprobadores);
-    const isCreateWithContext = !item && !!categoriaId && !!subcategoriaId;
+    const [currentStep, setCurrentStep] = useState(1);
+    const isCreateWithSubcategoryContext = !item && !!categoriaId && !!subcategoriaId;
+    const isCreateWithCategoryContext = !item && !!categoriaId && !subcategoriaId;
 
     // Obtener aprobadores de subcategoría para el contexto actual
     const subcatAprobadores = document.detalle
@@ -161,15 +172,40 @@ export default function ItemModal({ item, isOpen, onClose, onSave, categoriaId, 
         }
     };
 
-    const handleSave = () => {
+    const handleSave = async () => {
+        if (!selectedCategoria.trim() || !selectedSubcategoria.trim() || !localItem.itemNombre.trim()) {
+            await alertError('Campos obligatorios incompletos', 'Completa categoría, subcategoría y artículo.');
+            return;
+        }
+
         const finalItem = {
             ...localItem,
             camposAdicionales,
             // Si usa aprobadores de subcategoría, aseguramos que el campo quede vacío
             aprobadores: useSubcatAprobadores ? '' : localItem.aprobadores,
         };
-        onSave(finalItem, categoriaId || '', subcategoriaId || '');
+        onSave(
+            finalItem,
+            categoriaId || '',
+            subcategoriaId || '',
+            selectedCategoria,
+            selectedSubcategoria
+        );
         onClose();
+    };
+
+    const handleNextStep = async () => {
+        if (currentStep === 1) {
+            if (!selectedCategoria.trim() || !selectedSubcategoria.trim() || !localItem.itemNombre.trim()) {
+                await alertError('Campos obligatorios incompletos', 'Completa categoría, subcategoría y artículo para continuar.');
+                return;
+            }
+        }
+        setCurrentStep((prev) => Math.min(3, prev + 1));
+    };
+
+    const handlePreviousStep = () => {
+        setCurrentStep((prev) => Math.max(1, prev - 1));
     };
 
     // Convertir opciones para SelectCreatable
@@ -179,7 +215,7 @@ export default function ItemModal({ item, isOpen, onClose, onSave, categoriaId, 
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-4xl lg:max-w-5xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="sm:max-w-4xl lg:max-w-5xl max-h-[90dvh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle>{item ? 'Editar Ítem' : 'Agregar Nuevo Ítem'}</DialogTitle>
                     <DialogDescription>
@@ -187,8 +223,25 @@ export default function ItemModal({ item, isOpen, onClose, onSave, categoriaId, 
                     </DialogDescription>
                 </DialogHeader>
 
+                <div className="space-y-3 mt-2">
+                    <div className="flex items-center gap-2 text-xs font-medium text-gray-600">
+                        <span className={currentStep === 1 ? 'text-blue-700' : ''}>1. Catálogo</span>
+                        <span>•</span>
+                        <span className={currentStep === 2 ? 'text-blue-700' : ''}>2. Campos</span>
+                        <span>•</span>
+                        <span className={currentStep === 3 ? 'text-blue-700' : ''}>3. Propiedades</span>
+                    </div>
+                    <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                        <div
+                            className="h-full bg-blue-600 transition-all"
+                            style={{ width: `${(currentStep / 3) * 100}%` }}
+                        />
+                    </div>
+                </div>
+
                 <div className="space-y-6 mt-4">
                     {/* === SECCIÓN 1: CATÁLOGO === */}
+                    {currentStep === 1 && (
                     <Card>
                         <CardHeader>
                             <CardTitle className="text-base">Catálogo</CardTitle>
@@ -202,13 +255,13 @@ export default function ItemModal({ item, isOpen, onClose, onSave, categoriaId, 
                                     onValueChange={setSelectedCategoria}
                                     options={categoriasOptions}
                                     placeholder="Selecciona o escribe una categoría"
-                                    disabled={!!item || isCreateWithContext}
+                                    disabled={!!item || isCreateWithSubcategoryContext || isCreateWithCategoryContext}
                                 />
-                                {(item || isCreateWithContext) && (
+                                {(item || isCreateWithSubcategoryContext || isCreateWithCategoryContext) && (
                                     <p className="text-xs text-muted-foreground mt-1">
                                         {item
                                             ? 'No puedes cambiar la categoría al editar un ítem'
-                                            : 'Categoría prefijada por el contexto de subcategoría'}
+                                            : 'Categoría prefijada por el contexto'}
                                     </p>
                                 )}
                             </div>
@@ -221,9 +274,9 @@ export default function ItemModal({ item, isOpen, onClose, onSave, categoriaId, 
                                     onValueChange={setSelectedSubcategoria}
                                     options={subcategoriasOptions}
                                     placeholder="Selecciona o escribe una subcategoría"
-                                    disabled={!selectedCategoria || !!item || isCreateWithContext}
+                                    disabled={!selectedCategoria || !!item || isCreateWithSubcategoryContext}
                                 />
-                                {(item || isCreateWithContext) && (
+                                {(item || isCreateWithSubcategoryContext) && (
                                     <p className="text-xs text-muted-foreground mt-1">
                                         {item
                                             ? 'No puedes cambiar la subcategoría al editar un ítem'
@@ -250,8 +303,10 @@ export default function ItemModal({ item, isOpen, onClose, onSave, categoriaId, 
                             </div>
                         </CardContent>
                     </Card>
+                    )}
 
                     {/* === SECCIÓN 2: CAMPOS ADICIONALES === */}
+                    {currentStep === 2 && (
                     <Card className="border-2 border-blue-200">
                         <CardHeader>
                             <div className="flex items-center justify-between">
@@ -307,8 +362,10 @@ export default function ItemModal({ item, isOpen, onClose, onSave, categoriaId, 
                             )}
                         </CardContent>
                     </Card>
+                    )}
 
                     {/* === SECCIÓN 3: PROPIEDADES DEL ÍTEM === */}
+                    {currentStep === 3 && (
                     <Card>
                         <CardHeader>
                             <CardTitle className="text-base">Propiedades del Ítem</CardTitle>
@@ -443,13 +500,26 @@ export default function ItemModal({ item, isOpen, onClose, onSave, categoriaId, 
                             </div>
                         </CardContent>
                     </Card>
+                    )}
 
                     {/* Botones de acción */}
                     <div className="flex gap-3 pt-4">
-                        <Button onClick={handleSave} className="flex-1">
-                            <Save className="w-4 h-4 mr-2" />
-                            Guardar ítem
-                        </Button>
+                        {currentStep > 1 && (
+                            <Button variant="outline" onClick={handlePreviousStep} className="flex-1">
+                                Anterior
+                            </Button>
+                        )}
+                        {currentStep < 3 && (
+                            <Button onClick={handleNextStep} className="flex-1">
+                                Siguiente
+                            </Button>
+                        )}
+                        {currentStep === 3 && (
+                            <Button onClick={handleSave} className="flex-1">
+                                <Save className="w-4 h-4 mr-2" />
+                                Guardar
+                            </Button>
+                        )}
                         <Button variant="outline" onClick={onClose} className="flex-1">
                             Cancelar
                         </Button>

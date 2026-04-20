@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { FileText, Settings, AlertCircle } from 'lucide-react';
 import { useDocumentStore } from '@/stores/docStore';
-import { toast } from 'sonner';
+import { alertSuccess } from '@/lib/alerts';
 
 export default function DashboardPage() {
     const router = useRouter();
@@ -31,12 +31,12 @@ export default function DashboardPage() {
 
     const confirmClearDocument = async () => {
         await clear();
-        toast.success('Documento limpiado correctamente');
+        await alertSuccess('Documento limpiado correctamente');
         setIsClearOpen(false);
     };
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="min-h-[100dvh] bg-gray-50">
             {/* Header */}
             <header className="bg-white border-b">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">

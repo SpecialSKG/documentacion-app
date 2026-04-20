@@ -29,7 +29,7 @@ import {
 } from './excelAnchors';
 
 // Estilos base
-const DETAIL_FONT_NAME = 'Arial';
+const DETAIL_FONT_NAME = 'Roboto';
 const DETAIL_FONT_SIZE = 12;
 const DETAIL_HEADER_FONT_SIZE = 12;
 const CATEGORY_FONT_SIZE = 14;

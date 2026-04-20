@@ -10,25 +10,31 @@ import { useCatalogo } from '@/hooks/useCatalogo';
 interface AddCategoryModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onSave: (categoria: string) => void;
+    onSave: (categoria: string, subcategoria: string) => void;
 }
 
 export default function AddCategoryModal({ isOpen, onClose, onSave }: AddCategoryModalProps) {
-    const { categorias } = useCatalogo();
+    const { categorias, getSubcategorias } = useCatalogo();
     const [selectedCategoria, setSelectedCategoria] = useState('');
+    const [selectedSubcategoria, setSelectedSubcategoria] = useState('');
 
     const categoriasOptions = categorias.map((cat) => ({ value: cat.name, label: cat.name }));
-    const canSave = selectedCategoria.trim().length > 0;
+    const subcategoriasOptions = selectedCategoria
+        ? getSubcategorias(selectedCategoria).map((sub) => ({ value: sub.name, label: sub.name }))
+        : [];
+    const canSave = selectedCategoria.trim().length > 0 && selectedSubcategoria.trim().length > 0;
 
     const handleClose = () => {
         setSelectedCategoria('');
+        setSelectedSubcategoria('');
         onClose();
     };
 
     const handleSave = () => {
         const categoria = selectedCategoria.trim();
-        if (!categoria) return;
-        onSave(categoria);
+        const subcategoria = selectedSubcategoria.trim();
+        if (!categoria || !subcategoria) return;
+        onSave(categoria, subcategoria);
         handleClose();
     };
 
@@ -46,6 +52,14 @@ export default function AddCategoryModal({ isOpen, onClose, onSave }: AddCategor
                         onValueChange={setSelectedCategoria}
                         options={categoriasOptions}
                         placeholder="Selecciona o escribe una categoría"
+                    />
+                    <Label htmlFor="subcategoria">Subcategoría</Label>
+                    <SelectCreatable
+                        value={selectedSubcategoria}
+                        onValueChange={setSelectedSubcategoria}
+                        options={subcategoriasOptions}
+                        placeholder="Selecciona o escribe una subcategoría"
+                        disabled={!selectedCategoria}
                     />
                 </div>
 
