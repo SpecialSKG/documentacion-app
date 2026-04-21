@@ -99,7 +99,10 @@ export default function StepResumen() {
     const hasData = general.nombreServicio || detalle.length > 0;
 
     return (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
+
+            
+
             {/* Resumen de datos generales */}
             <Card>
                 <CardHeader>

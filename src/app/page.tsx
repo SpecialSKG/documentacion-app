@@ -19,7 +19,10 @@ export default function DashboardPage() {
         load();
     }, [load]);
 
-    const hasDraft = document.updatedAt !== document.createdAt || document.detalle.length > 0;
+    const hasDraft =
+        document.detalle.length > 0 ||
+        Object.values(document.general).some((value) => value.trim() !== '') ||
+        Boolean(document.flowchart);
 
     const handleNewDocument = () => {
         router.push('/nuevo?step=1');

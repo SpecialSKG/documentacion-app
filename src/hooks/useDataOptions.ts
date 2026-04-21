@@ -5,6 +5,7 @@
 
 import { useMemo } from 'react';
 import datosJson from '@/data/datos.json';
+import { FIELD_TYPES } from '@/lib/document';
 
 export interface SelectOption {
     value: string;
@@ -18,7 +19,7 @@ export function useDataOptions() {
     );
 
     const tipoCamposOptions: SelectOption[] = useMemo(
-        () => datosJson.tipo_campos.map((tipo) => ({ value: tipo, label: tipo })),
+        () => FIELD_TYPES.map((tipo) => ({ value: tipo, label: tipo })),
         []
     );
 
