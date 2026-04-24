@@ -4,7 +4,7 @@ const toastBase = Swal.mixin({
     toast: true,
     position: 'top-end',
     showConfirmButton: false,
-    timer: 2800,
+    timer: 2500,
     timerProgressBar: true,
 });
 
@@ -17,19 +17,55 @@ export function alertInfo(title: string): Promise<void> {
 }
 
 export function alertError(title: string, text?: string): Promise<void> {
+    let timerInterval: ReturnType<typeof setInterval>;
+
     return Swal.fire({
         icon: 'error',
         title,
         text,
         confirmButtonText: 'Entendido',
+        showConfirmButton: false,
+        timer: 2500,
+        timerProgressBar: true,
+        didOpen: () => {
+            Swal.showLoading();
+            const popup = Swal.getPopup();
+            const timer = popup?.querySelector("b");
+            timerInterval = setInterval(() => {
+                if (timer) {
+                    timer.textContent = `${Swal.getTimerLeft()}`;
+                }
+            }, 100);
+        },
+        willClose: () => {
+            clearInterval(timerInterval);
+        }
     }).then(() => undefined);
 }
 
 export function alertWarning(title: string, text?: string): Promise<void> {
+    let timerInterval: ReturnType<typeof setInterval>;
+
     return Swal.fire({
         icon: 'warning',
         title,
         text,
         confirmButtonText: 'Entendido',
+        showConfirmButton: false,
+        timer: 2500,
+        timerProgressBar: true,
+        didOpen: () => {
+            Swal.showLoading();
+            const popup = Swal.getPopup();
+            const timer = popup?.querySelector("b");
+            timerInterval = setInterval(() => {
+                if (timer) {
+                    timer.textContent = `${Swal.getTimerLeft()}`;
+                }
+            }, 100);
+        },
+        willClose: () => {
+            clearInterval(timerInterval);
+        }
     }).then(() => undefined);
 }

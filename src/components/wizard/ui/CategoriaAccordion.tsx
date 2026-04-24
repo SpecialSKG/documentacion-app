@@ -21,6 +21,7 @@ import AddCategoryModal from './AddCategoryModal';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { nanoid } from 'nanoid';
 import { alertError, alertInfo, alertSuccess } from '@/lib/alerts';
+import { ta } from 'zod/v4/locales';
 
 interface CategoriaAccordionProps {
     categorias: Categoria[];
@@ -209,7 +210,7 @@ export default function CategoriaAccordion({ categorias }: CategoriaAccordionPro
         if (selectedItem) {
             // Edición
             updateItem(categoriaId, subcategoriaId, item.id, item);
-            void alertSuccess('Ítem actualizado');
+            void alertSuccess('Artículo actualizado');
         } else {
             if (!subcategoriaId) {
                 const categoria = categorias.find((current) => current.id === categoriaId);
@@ -243,7 +244,7 @@ export default function CategoriaAccordion({ categorias }: CategoriaAccordionPro
                 addItem(categoriaId, subcategoriaId, item);
                 ensureExpandedPath(categoriaId, subcategoriaId);
             }
-            void alertSuccess('Ítem creado');
+            void alertSuccess('Artículo creado');
         }
     };
 
@@ -275,7 +276,7 @@ export default function CategoriaAccordion({ categorias }: CategoriaAccordionPro
             void alertSuccess('Subcategoría eliminada');
         } else if (type === 'item' && categoriaId && subcategoriaId && itemId) {
             deleteItem(categoriaId, subcategoriaId, itemId);
-            void alertSuccess('Ítem eliminado');
+            void alertSuccess('Artículo eliminado');
         }
 
         setDeleteConfirm({ open: false, type: 'categoria' });
@@ -361,7 +362,7 @@ export default function CategoriaAccordion({ categorias }: CategoriaAccordionPro
                                                                     📂 {subcat.nombre || '(Sin nombre)'}
                                                                 </span>
                                                                 <Badge variant="outline" className="text-xs">
-                                                                    {subcat.items.length} ítems
+                                                                    {subcat.items.length} Articulos
                                                                 </Badge>
                                                                 {subcat.aprobadores && (
                                                                     <Badge variant="default" className="text-xs">
@@ -391,6 +392,7 @@ export default function CategoriaAccordion({ categorias }: CategoriaAccordionPro
                                                                 variant="destructive"
                                                                 size="sm"
                                                                 onClick={() => handleDeleteSubcategoria(categoria.id, subcat.id)}
+                                                                title="Eliminar subcategoría"
                                                             >
                                                                 <Trash2 className="w-3 h-3" />
                                                             </Button>
@@ -404,11 +406,11 @@ export default function CategoriaAccordion({ categorias }: CategoriaAccordionPro
                                                             className="mb-2"
                                                         >
                                                             <Plus className="w-4 h-4 mr-2" />
-                                                            Agregar Ítem
+                                                            Agregar Articulo
                                                         </Button>
 
                                                         {subcat.items.length === 0 ? (
-                                                            <p className="text-xs text-gray-500 py-1">No hay ítems</p>
+                                                            <p className="text-xs text-gray-500 py-1">No hay articulos</p>
                                                         ) : (
                                                             <div className="space-y-1">
                                                                 {subcat.items.map((item) => (
@@ -516,7 +518,7 @@ export default function CategoriaAccordion({ categorias }: CategoriaAccordionPro
                         ? 'Eliminar Categoría'
                         : deleteConfirm.type === 'subcategoria'
                             ? 'Eliminar Subcategoría'
-                            : 'Eliminar Ítem'
+                            : 'Eliminar Artículo'
                 }
                 description={
                     deleteConfirm.type === 'categoria'
